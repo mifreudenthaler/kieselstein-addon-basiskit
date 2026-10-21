@@ -39,7 +39,7 @@
       { "command": "kieselsteinAddon.verwaltungOeffnen", "title": "Verwaltung öffnen (Ausrollen)", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.ansichtNeuLaden", "title": "Neu laden", "category": "Kieselstein", "icon": "$(refresh)" },
       { "command": "kieselsteinAddon.anlegen", "title": "Neues Addon anlegen", "category": "Kieselstein", "icon": "$(new-file)" },
-      { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und in den Test laden", "category": "Kieselstein", "icon": "$(cloud-upload)" },
+      { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und laden (erste Stufe)", "category": "Kieselstein", "icon": "$(cloud-upload)" },
       { "command": "kieselsteinAddon.testen", "title": "Tests des Addons ausführen", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.oeffnen", "title": "Addon im Browser öffnen", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" },
