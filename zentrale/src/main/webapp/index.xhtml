@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+      xmlns:p="http://primefaces.org/ui"
+      lang="de">
+<h:head>
+    <title>Addon-Zentrale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <h:outputStylesheet library="basiskit" name="basiskit.css"/>
+</h:head>
+<h:body>
+    <div class="kopf">
+        <span class="marke">Kieselstein · Addons</span>
+        <h:outputText styleClass="stufe-test" value="Test" rendered="#{startseite.test}"/>
+        <ui:fragment rendered="#{sitzung.angemeldet}">
+            <div class="rechts">
+                <span>#{sitzung.benutzer} · Mandant #{sitzung.mandant}</span>
+                <h:form>
+                    <p:commandLink value="Abmelden" action="#{anmeldung.abmelden}" ajax="false" style="color:#fff"/>
+                </h:form>
+            </div>
+        </ui:fragment>
+    </div>
+
+    <ui:fragment rendered="#{not sitzung.angemeldet}">
+        <div class="anmelden">
+            <h1>Anmelden</h1>
+            <p class="unterzeile">Mit Ihrem Kieselstein-Benutzer – dieselben Rechte wie im Client.</p>
+            <h:form>
+                <p:messages closable="true"/>
+                <div class="feld">
+                    <p:outputLabel for="benutzer" value="Benutzer"/>
+                    <p:inputText id="benutzer" value="#{anmeldung.benutzer}" required="true"
+                                 requiredMessage="Benutzer fehlt" autocomplete="username"/>
+                </div>
+                <div class="feld">
+                    <p:outputLabel for="kennwort" value="Kennwort"/>
+                    <p:password id="kennwort" value="#{anmeldung.kennwort}" required="true"
+                                requiredMessage="Kennwort fehlt" autocomplete="current-password"/>
+                </div>
+                <div class="feld">
+                    <p:outputLabel for="mandant" value="Mandant (leer: Standard des Benutzers)"/>
+                    <p:inputText id="mandant" value="#{anmeldung.mandant}"/>
+                </div>
+                <p:commandButton value="Anmelden" action="#{anmeldung.anmelden}" ajax="false"/>
+            </h:form>
+        </div>
+    </ui:fragment>
+
+    <ui:fragment rendered="#{sitzung.angemeldet}">
+        <div class="inhalt">
+            <h1>Addons</h1>
+            <p class="unterzeile">#{startseite.mandantName} – installiert in diesem Addon-Server</p>
+
+            <div class="kacheln">
+                <ui:repeat value="#{startseite.addons}" var="addon">
+                    <a class="kachel" href="#{addon.pfad}">
+                        <div class="name">#{addon.name}</div>
+                        <div class="zustand">#{addon.zustand}</div>
+                    </a>
+                </ui:repeat>
+            </div>
+
+            <dl class="angaben">
+                <dt>Kieselstein</dt><dd>#{startseite.kieselsteinServer} · Version #{startseite.kieselsteinVersion}</dd>
+                <dt>Stufe</dt><dd>#{startseite.stufe}</dd>
+                <dt>Addons verwalten</dt><dd>#{startseite.darfVerwalten ? 'ja (LP_SYSTEM_CUD)' : 'nein'} – am Kieselstein-Server geprüft</dd>
+            </dl>
+        </div>
+    </ui:fragment>
+</h:body>
+</html>

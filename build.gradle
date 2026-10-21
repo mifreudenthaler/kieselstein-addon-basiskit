@@ -1,0 +1,21 @@
+// Kieselstein-Addon-Entwicklung Basiskit
+//
+// Gebaut wird gegen die Schnittstellen der Kieselstein-Version des Kunden:
+// die Client-Bibliotheken dieser Version (kieselstein-ejb, kieselstein-common).
+// Vorgabe ist der lokale Client 2.0.0; anders mit -PksClientLib=/pfad/zur/lib.
+ext {
+    ksClientLib = findProperty('ksClientLib') ?: "${System.getProperty('user.home')}/.kieselstein/clients/2.0.0/lib"
+    kieselsteinApi = files(fileTree(ksClientLib) { include 'kieselstein-ejb-*.jar', 'kieselstein-common-*.jar' })
+}
+
+subprojects {
+    apply plugin: 'java'
+    group = 'at.freudenthaler.kieselstein.addon'
+    version = '0.1.0'
+    repositories { mavenCentral() }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-proc:none']
+    }
+}
