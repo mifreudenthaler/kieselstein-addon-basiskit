@@ -358,14 +358,26 @@ async function addonAnlegen() {
         'Hier ist noch kein Addon-Projekt geöffnet. Ein neues anlegen? Es enthält die Basisschicht, Ihr erstes Addon und die Kieselstein-Bibliotheken vom Server.',
         { modal: true }, 'Projekt anlegen …');
       if (!wahl) return null;
-      const ziel = await vscode.window.showOpenDialog({
-        canSelectFolders: true, canSelectFiles: false, canSelectMany: false,
-        openLabel: 'Hier anlegen', title: 'Ordner für das Addon-Projekt (leer oder neu)',
+      // Kein Datei-Dialog des Systems: Über Fernsitzungen erscheint der unsichtbar und blockiert den Editor.
+      const fsx = require('node:fs');
+      const vorschlag = path.join(require('node:os').homedir(), 'kieselstein-addons');
+      const zielPfad = await vscode.window.showInputBox({
+        title: 'Neues Addon-Projekt',
+        prompt: 'Ordner für das Addon-Projekt – wird angelegt, falls es ihn noch nicht gibt',
+        value: vorschlag,
+        validateInput: (v) => {
+          if (!v || !path.isAbsolute(v.replace(/^~(?=\/|$)/, require('node:os').homedir()))) return 'Vollständiger Pfad, z. B. ' + vorschlag;
+          const p = v.replace(/^~(?=\/|$)/, require('node:os').homedir());
+          if (fsx.existsSync(p) && fsx.readdirSync(p).filter((n) => !n.startsWith('.')).length) return 'Der Ordner ist nicht leer';
+          return null;
+        },
       });
-      if (!ziel?.length) return null;
+      if (!zielPfad) return null;
       const angaben = await addonAngaben();
       if (!angaben) return null;
-      const ordner = await mitFortschritt('Addon-Projekt anlegen', () => projektAnlegen(ziel[0].fsPath, angaben));
+      const ordner = await mitFortschritt('Addon-Projekt anlegen', () =>
+        projektAnlegen(zielPfad.replace(/^~(?=\/|$)/, require('node:os').homedir()), angaben));
+      vscode.window.showInformationMessage(`Addon-Projekt angelegt – der Editor öffnet jetzt ${ordner}.`);
       await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(ordner), false);
       return ordner;
     }

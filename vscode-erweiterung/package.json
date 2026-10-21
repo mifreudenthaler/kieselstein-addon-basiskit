@@ -2,7 +2,7 @@
   "name": "kieselstein-addon",
   "displayName": "Kieselstein-Addon-Entwicklung",
   "description": "Basiskit auf Test und Produktion einrichten, Kieselstein-Addons anlegen, bauen und in den Test laden.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "freudenthaler",
   "license": "SEE LICENSE IN README.md",
   "repository": { "type": "git", "url": "https://github.com/mifreudenthaler/kieselstein-addon-basiskit.git" },
