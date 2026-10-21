@@ -16,6 +16,7 @@ const vscode = require('vscode');
 const path = require('node:path');
 const w = require('./lib/werkzeug');
 const s = require('./lib/server');
+const f = require('./lib/formular');
 
 let ausgabe;
 let leiste;
@@ -142,7 +143,7 @@ class Serveransicht {
       `**${s.STUFEN_NAME[srv.stufe]}**`,
       `Maschine: ${srv.ssh || 'diese Maschine'}`,
       `Kieselstein: ${srv.kieselstein}${st.kieselsteinVersion ? ` (${st.kieselsteinVersion})` : ''}`,
-      `Zentrale: ${srv.adresse}`,
+      `Zentrale: ${srv.adresse} (Port ${f.portAusVersatz(srv.portVersatz)})`,
       st.fehler ? `Fehler: ${st.fehler}` : '',
     ].filter(Boolean).join('  \n'));
     t.contextValue = wert;
@@ -156,45 +157,71 @@ function paketInfo() {
 
 // --- Befehle: Server ---------------------------------------------------------
 
-async function serverEintragen() {
+/**
+ * Formular für einen Server – neu (ohne Knoten) oder zum Bearbeiten (Rechtsklick auf den Server).
+ * Gibt ein Promise zurück, das mit dem gespeicherten Eintrag (oder null) endet.
+ */
+function serverFormular(knoten) {
+  const alt = knoten?.srv || null;
+  const panel = vscode.window.createWebviewPanel('kieselsteinAddon.server', alt ? `Server – ${s.STUFEN_NAME[alt.stufe]}` : 'Server eintragen',
+    vscode.ViewColumn.Active, { enableScripts: true, retainContextWhenHidden: true });
+  const nonce = require('node:crypto').randomBytes(16).toString('hex');
+  panel.webview.html = f.html(nonce, panel.webview.cspSource);
   const vorhanden = serverListe();
-  const wahl = await vscode.window.showQuickPick([
-    { label: 'Test', stufe: 'test', description: 'hier werden Addons geladen und geprüft' },
-    { label: 'Produktion', stufe: 'produktion', description: 'Addons kommen nur über „Ausrollen" aus dem Test' },
-    { label: 'Entwicklung', stufe: 'entwicklung', description: 'zusätzlich: eigener Server vor dem Test' },
-  ].map((x) => ({ ...x, detail: vorhanden.some((v) => v.stufe === x.stufe) ? 'schon eingetragen – wird ersetzt' : undefined })),
-  { placeHolder: 'Welche Stufe eintragen?' });
-  if (!wahl) return;
-  const ssh = await vscode.window.showInputBox({
-    prompt: `${wahl.label}: SSH-Zugang (benutzer@rechner). Leer = diese Maschine.`,
-    placeHolder: 'kieselstein@erp-test',
+  const vorschlag = alt ? null : (['test', 'produktion', 'entwicklung'].find((x) => !vorhanden.some((v) => v.stufe === x)) || 'test');
+  panel.webview.postMessage({
+    art: 'vorbelegen',
+    titel: alt ? `Server bearbeiten – ${s.STUFEN_NAME[alt.stufe]}` : 'Server eintragen',
+    stufeFest: Boolean(alt),
+    werte: alt
+      ? { stufe: alt.stufe, ssh: alt.ssh, kieselstein: alt.kieselstein, port: f.portAusVersatz(alt.portVersatz), adresse: alt.adresse === `http://${alt.ssh ? alt.ssh.split('@').pop() : require('node:os').hostname()}:${f.portAusVersatz(alt.portVersatz)}` ? '' : alt.adresse }
+      : { stufe: vorschlag, port: vorhanden.some((v) => !v.ssh) ? 8280 + 100 * vorhanden.filter((v) => !v.ssh).length : 8280 },
   });
-  if (ssh === undefined) return;
-  const kieselstein = await vscode.window.showInputBox({
-    prompt: `${wahl.label}: Ordner der Kieselstein-Installation (mit dist/ und data/)`,
-    placeHolder: '/opt/kieselstein',
+  return new Promise((fertig) => {
+    let erledigt = false;
+    const ende = (wert) => { if (!erledigt) { erledigt = true; fertig(wert); } };
+    panel.onDidDispose(() => ende(null));
+    panel.webview.onDidReceiveMessage(async (m) => {
+      const werte = alt ? { ...m.werte, stufe: alt.stufe } : m.werte;
+      try {
+        if (m.art === 'abbrechen') {
+          panel.dispose();
+        } else if (m.art === 'suchen') {
+          panel.webview.postMessage({ art: 'gefunden', liste: await f.kieselsteinSuchen(werte.ssh) });
+        } else if (m.art === 'pruefen' || m.art === 'speichern') {
+          const andere = serverListe().filter((v) => v.stufe !== (alt ? alt.stufe : werte.stufe));
+          const fehlerFelder = f.pruefeEingaben(werte, andere);
+          panel.webview.postMessage({ art: 'fehler', fehler: fehlerFelder });
+          if (Object.keys(fehlerFelder).length) {
+            panel.webview.postMessage({ art: 'ergebnis', ok: false, text: 'Bitte die markierten Felder prüfen.' });
+            return;
+          }
+          const p = await f.pruefen(werte);
+          panel.webview.postMessage({ art: 'ergebnis', ok: p.ok, text: p.text });
+          if (m.art === 'speichern' && p.ok) {
+            const neu = f.eintrag(werte);
+            await serverSpeichern([...serverListe().filter((v) => v.stufe !== neu.stufe), neu]);
+            ansicht.neuLaden();
+            aktualisieren();
+            vscode.window.showInformationMessage(`${s.STUFEN_NAME[neu.stufe]} gespeichert.`);
+            panel.dispose();
+            ende(neu);
+          }
+        }
+      } catch (e) {
+        panel.webview.postMessage({ art: 'ergebnis', ok: false, text: e.message });
+      }
+    });
   });
-  if (!kieselstein) return;
-  const versatz = await vscode.window.showInputBox({
-    prompt: `${wahl.label}: Port-Versatz des Addon-Servers (200 → Port 8280)`,
-    value: '200', validateInput: (v) => (/^\d{1,4}$/.test(v) ? null : 'Zahl'),
-  });
-  if (!versatz) return;
-  const rechner = ssh ? ssh.split('@').pop() : require('node:os').hostname();
-  const adresse = await vscode.window.showInputBox({
-    prompt: `${wahl.label}: Adresse der Zentrale im Browser – muss auch von der vorigen Stufe aus erreichbar sein`,
-    value: `http://${rechner}:${8080 + Number(versatz)}`,
-  });
-  if (!adresse) return;
-  const srv = { stufe: wahl.stufe, ssh: ssh.trim(), kieselstein: kieselstein.trim().replace(/\/$/, ''), adresse: adresse.trim().replace(/\/$/, ''), portVersatz: Number(versatz) };
-  await mitFortschritt(`${wahl.label} prüfen`, async () => {
-    const st = await s.stand(srv);
-    if (!st.erreichbar) throw new Error(`${wahl.label} ist nicht erreichbar: ${st.fehler}`);
-    if (!st.kieselstein) throw new Error(`Unter ${srv.kieselstein} liegt keine Kieselstein-Installation.`);
-    ausgabe.appendLine(`✔ ${wahl.label}: Kieselstein ${st.kieselsteinVersion}, Zentrale ${st.installiert ? st.basiskit : 'nicht installiert'}`);
-  }).catch(fehler);
-  await serverSpeichern([...vorhanden.filter((v) => v.stufe !== srv.stufe), srv]);
-  ansicht.neuLaden();
+}
+
+async function serverEintragen() {
+  return serverFormular(null);
+}
+
+async function serverBearbeiten(knoten) {
+  if (knoten?.srv) return serverFormular(knoten);
+  return null;
 }
 
 async function serverEntfernen(knoten) {
@@ -453,6 +480,7 @@ function activate(k) {
   const befehle = {
     'kieselsteinAddon.serverEintragen': serverEintragen,
     'kieselsteinAddon.serverEntfernen': serverEntfernen,
+    'kieselsteinAddon.serverBearbeiten': serverBearbeiten,
     'kieselsteinAddon.basiskitEinrichten': basiskitEinrichten,
     'kieselsteinAddon.serverStarten': serverStarten,
     'kieselsteinAddon.serverAnhalten': serverAnhalten,
@@ -473,7 +501,7 @@ function activate(k) {
   setTimeout(() => updatePruefen(false), 10000);
 
   // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
-  return { server: s, werkzeug: w, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
+  return { server: s, werkzeug: w, formular: f, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
 }
 
 function deactivate() {}

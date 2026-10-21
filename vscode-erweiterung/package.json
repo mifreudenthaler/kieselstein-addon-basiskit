@@ -2,7 +2,7 @@
   "name": "kieselstein-addon",
   "displayName": "Kieselstein-Addon-Entwicklung",
   "description": "Basiskit auf Test und Produktion einrichten, Kieselstein-Addons anlegen, bauen und in den Test laden.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "freudenthaler",
   "license": "SEE LICENSE IN README.md",
   "repository": { "type": "git", "url": "https://github.com/mifreudenthaler/kieselstein-addon-basiskit.git" },
@@ -31,6 +31,7 @@
     "commands": [
       { "command": "kieselsteinAddon.serverEintragen", "title": "Server eintragen …", "category": "Kieselstein", "icon": "$(add)" },
       { "command": "kieselsteinAddon.serverEntfernen", "title": "Aus der Liste nehmen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.serverBearbeiten", "title": "Bearbeiten …", "category": "Kieselstein", "icon": "$(edit)" },
       { "command": "kieselsteinAddon.basiskitEinrichten", "title": "Basiskit einrichten / aktualisieren", "category": "Kieselstein", "icon": "$(cloud-download)" },
       { "command": "kieselsteinAddon.serverStarten", "title": "Addon-Server starten", "category": "Kieselstein", "icon": "$(debug-start)" },
       { "command": "kieselsteinAddon.serverAnhalten", "title": "Addon-Server anhalten", "category": "Kieselstein", "icon": "$(debug-stop)" },
@@ -58,7 +59,8 @@
         { "command": "kieselsteinAddon.serverAnhalten", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "1_basiskit@3" },
         { "command": "kieselsteinAddon.zentraleOeffnen", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "2_oeffnen@1" },
         { "command": "kieselsteinAddon.verwaltungOeffnen", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "2_oeffnen@2" },
-        { "command": "kieselsteinAddon.serverEntfernen", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "9_liste@1" }
+        { "command": "kieselsteinAddon.serverBearbeiten", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "9_liste@1" },
+        { "command": "kieselsteinAddon.serverEntfernen", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "9_liste@2" }
       ],
       "editor/title": [
         { "command": "kieselsteinAddon.inDenTest", "group": "navigation", "when": "resourceExtname == .xhtml || resourceExtname == .java" }
@@ -70,7 +72,7 @@
         "kieselsteinAddon.server": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Die Server der Kette – wird über **Server eintragen** gepflegt. Je Eintrag: `stufe` (entwicklung, test, produktion), `ssh` (benutzer@rechner, leer = diese Maschine), `kieselstein` (Ordner mit dist/ und data/), `adresse` (Zentrale im Browser), `portVersatz`.",
+          "markdownDescription": "Die Server der Kette – gepflegt über das Formular (Kieselstein-Seitenleiste → **Server eintragen**, Rechtsklick → **Bearbeiten**).",
           "items": {
             "type": "object",
             "properties": {
