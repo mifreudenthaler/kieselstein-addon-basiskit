@@ -1,0 +1,99 @@
+{
+  "name": "kieselstein-addon",
+  "displayName": "Kieselstein-Addon-Entwicklung",
+  "description": "Basiskit auf Test und Produktion einrichten, Kieselstein-Addons anlegen, bauen und in den Test laden.",
+  "version": "0.2.0",
+  "publisher": "freudenthaler",
+  "license": "SEE LICENSE IN README.md",
+  "repository": { "type": "git", "url": "https://github.com/mifreudenthaler/kieselstein-addon-basiskit.git" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "extensionKind": ["workspace"],
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        { "id": "kieselstein", "title": "Kieselstein-Addons", "icon": "media/kieselstein.svg" }
+      ]
+    },
+    "views": {
+      "kieselstein": [
+        { "id": "kieselsteinAddon.server", "name": "Server" }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "kieselsteinAddon.server",
+        "contents": "Noch kein Server eingetragen. Standard sind ein Test- und ein Produktionsserver beim Kunden.\n[Server eintragen](command:kieselsteinAddon.serverEintragen)"
+      }
+    ],
+    "commands": [
+      { "command": "kieselsteinAddon.serverEintragen", "title": "Server eintragen …", "category": "Kieselstein", "icon": "$(add)" },
+      { "command": "kieselsteinAddon.serverEntfernen", "title": "Aus der Liste nehmen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.basiskitEinrichten", "title": "Basiskit einrichten / aktualisieren", "category": "Kieselstein", "icon": "$(cloud-download)" },
+      { "command": "kieselsteinAddon.serverStarten", "title": "Addon-Server starten", "category": "Kieselstein", "icon": "$(debug-start)" },
+      { "command": "kieselsteinAddon.serverAnhalten", "title": "Addon-Server anhalten", "category": "Kieselstein", "icon": "$(debug-stop)" },
+      { "command": "kieselsteinAddon.zentraleOeffnen", "title": "Zentrale öffnen", "category": "Kieselstein", "icon": "$(globe)" },
+      { "command": "kieselsteinAddon.verwaltungOeffnen", "title": "Verwaltung öffnen (Ausrollen)", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.ansichtNeuLaden", "title": "Neu laden", "category": "Kieselstein", "icon": "$(refresh)" },
+      { "command": "kieselsteinAddon.anlegen", "title": "Neues Addon anlegen", "category": "Kieselstein", "icon": "$(new-file)" },
+      { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und in den Test laden", "category": "Kieselstein", "icon": "$(cloud-upload)" },
+      { "command": "kieselsteinAddon.testen", "title": "Tests des Addons ausführen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.oeffnen", "title": "Addon im Browser öffnen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.updatePruefen", "title": "Nach einer neueren Fassung suchen", "category": "Kieselstein" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "kieselsteinAddon.serverEintragen", "when": "view == kieselsteinAddon.server", "group": "navigation@1" },
+        { "command": "kieselsteinAddon.anlegen", "when": "view == kieselsteinAddon.server", "group": "navigation@2" },
+        { "command": "kieselsteinAddon.ansichtNeuLaden", "when": "view == kieselsteinAddon.server", "group": "navigation@3" }
+      ],
+      "view/item/context": [
+        { "command": "kieselsteinAddon.basiskitEinrichten", "when": "view == kieselsteinAddon.server && viewItem =~ /server-(installieren|aktualisieren)/", "group": "inline@1" },
+        { "command": "kieselsteinAddon.zentraleOeffnen", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "inline@2" },
+        { "command": "kieselsteinAddon.basiskitEinrichten", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "1_basiskit@1" },
+        { "command": "kieselsteinAddon.serverStarten", "when": "view == kieselsteinAddon.server && viewItem =~ /-steht$/", "group": "1_basiskit@2" },
+        { "command": "kieselsteinAddon.serverAnhalten", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "1_basiskit@3" },
+        { "command": "kieselsteinAddon.zentraleOeffnen", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "2_oeffnen@1" },
+        { "command": "kieselsteinAddon.verwaltungOeffnen", "when": "view == kieselsteinAddon.server && viewItem =~ /-laeuft$/", "group": "2_oeffnen@2" },
+        { "command": "kieselsteinAddon.serverEntfernen", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "9_liste@1" }
+      ],
+      "editor/title": [
+        { "command": "kieselsteinAddon.inDenTest", "group": "navigation", "when": "resourceExtname == .xhtml || resourceExtname == .java" }
+      ]
+    },
+    "configuration": {
+      "title": "Kieselstein-Addon",
+      "properties": {
+        "kieselsteinAddon.server": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Die Server der Kette – wird über **Server eintragen** gepflegt. Je Eintrag: `stufe` (entwicklung, test, produktion), `ssh` (benutzer@rechner, leer = diese Maschine), `kieselstein` (Ordner mit dist/ und data/), `adresse` (Zentrale im Browser), `portVersatz`.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "stufe": { "type": "string", "enum": ["entwicklung", "test", "produktion"] },
+              "ssh": { "type": "string" },
+              "kieselstein": { "type": "string" },
+              "adresse": { "type": "string" },
+              "portVersatz": { "type": "number" },
+              "kieselsteinServer": { "type": "string" }
+            }
+          }
+        },
+        "kieselsteinAddon.clientLib": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`lib/` des Kieselstein-Clients der Zielversion – zum Bauen und Nachschlagen, z. B. `~/.kieselstein/clients/2.0.0/lib`."
+        },
+        "kieselsteinAddon.jdk": {
+          "type": "string",
+          "default": "",
+          "description": "JDK 21 zum Bauen (leer: das von Kieselstein unter ~/.kieselstein/jdk)."
+        }
+      }
+    }
+  }
+}

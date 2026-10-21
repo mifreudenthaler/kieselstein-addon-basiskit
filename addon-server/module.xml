@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Die Schnittstellen der Kieselstein-Fachlogik (Fassaden und Datenobjekte),
+     aus dem Client derselben Kieselstein-Version. Addons hängen sich per
+     jboss-deployment-structure.xml an dieses Modul. -->
+<module xmlns="urn:jboss:module:1.9" name="kieselstein.client">
+    <resources>
+@WURZELN@
+    </resources>
+    <dependencies>
+        <module name="java.se"/>
+        <module name="javax.api"/>
+        <module name="javax.ejb.api"/>
+        <module name="javax.transaction.api"/>
+        <module name="javax.persistence.api"/>
+        <module name="org.jboss.logging"/>
+        <module name="javax.mail.api" optional="true"/>
+        <module name="javax.xml.bind.api" optional="true"/>
+        <module name="javax.activation.api" optional="true"/>
+        <module name="org.jboss.ejb-client"/>
+        <module name="org.wildfly.naming-client"/>
+    </dependencies>
+</module>

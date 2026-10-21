@@ -1,0 +1,4 @@
+test/**
+bauen.sh
+.gitignore
+*.vsix

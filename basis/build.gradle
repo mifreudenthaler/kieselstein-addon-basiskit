@@ -1,0 +1,9 @@
+// Die Basisschicht: Anmeldung, Rechte und Fassaden-Zugriff für alle Addons.
+// Kieselstein-Schnittstellen und Java EE kommen zur Laufzeit vom Addon-Server.
+apply plugin: 'java-library'
+
+dependencies {
+    compileOnly 'javax:javaee-api:8.0.1'
+    compileOnly rootProject.kieselsteinApi
+    compileOnly 'org.primefaces:primefaces:15.0.6'
+}

@@ -1,0 +1,51 @@
+<!--
+  Der gemeinsame Rahmen aller Addons, im Kieselstein-Design.
+
+  Ein Addon benutzt ihn so:
+    <ui:composition template="/basiskit/rahmen.xhtml">
+      <ui:param name="titel" value="Aufträge"/>
+      <ui:define name="inhalt"> … </ui:define>
+    </ui:composition>
+
+  Ist niemand angemeldet, zeigt der Rahmen statt des Inhalts den Weg zur
+  Anmeldung an der Zentrale – die Anmeldung gilt dann für alle Addons.
+-->
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://xmlns.jcp.org/jsf/html"
+      xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+      lang="de">
+<ui:insert name="metadaten"/>
+<h:head>
+    <title>#{titel} · Kieselstein</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <h:outputStylesheet library="basiskit" name="basiskit.css"/>
+</h:head>
+<h:body>
+    <div class="ks-kopf">
+        <a href="/"><h:graphicImage library="basiskit" name="kieselstein-logo.png" styleClass="ks-logo" alt="Kieselstein ERP"/></a>
+        <span class="ks-titel">#{titel}</span>
+        <h:outputText styleClass="ks-stufe" value="#{rahmen.stufeText}" rendered="#{rahmen.test}"/>
+        <ui:fragment rendered="#{sitzung.angemeldet}">
+            <div class="ks-rechts">
+                <a href="/">Addons</a>
+                <h:outputLink value="/verwaltung.xhtml" rendered="#{rahmen.verwalten}">Verwaltung</h:outputLink>
+                <span class="ks-wer">#{sitzung.benutzer} · Mandant #{sitzung.mandant}</span>
+                <a href="/abmelden.xhtml">Abmelden</a>
+            </div>
+        </ui:fragment>
+    </div>
+
+    <ui:fragment rendered="#{sitzung.angemeldet or rahmen.anmeldeseite}">
+        <ui:insert name="inhalt"/>
+    </ui:fragment>
+    <ui:fragment rendered="#{not sitzung.angemeldet and not rahmen.anmeldeseite}">
+        <div class="ks-anmelden">
+            <h1 class="ks-h1">Nicht angemeldet</h1>
+            <p class="ks-unterzeile">Melden Sie sich an der Addon-Zentrale an – die Anmeldung gilt für alle Addons.</p>
+            <a class="ui-button ui-widget ui-state-default ui-corner-all" style="display:block;text-align:center;padding:.6rem;color:#fff;text-decoration:none"
+               href="/?zurueck=#{rahmen.hier}">Zur Anmeldung</a>
+        </div>
+    </ui:fragment>
+</h:body>
+</html>

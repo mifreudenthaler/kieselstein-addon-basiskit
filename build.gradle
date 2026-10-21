@@ -1,0 +1,39 @@
+// Kieselstein-Addon-Entwicklung Basiskit
+//
+// Gebaut wird gegen die Schnittstellen der Kieselstein-Version des Kunden:
+// die Client-Bibliotheken dieser Version (kieselstein-ejb, kieselstein-common).
+// Vorgabe ist der lokale Client 2.0.0; anders mit -PksClientLib=/pfad/zur/lib.
+ext {
+    ksClientLib = findProperty('ksClientLib') ?: "${System.getProperty('user.home')}/.kieselstein/clients/2.0.0/lib"
+    kieselsteinApi = files(fileTree(ksClientLib) { include 'kieselstein-ejb-*.jar', 'kieselstein-common-*.jar' })
+}
+
+// Version des Basiskits (Addon-Server, Zentrale, Basisschicht) – steht im Paket und in der Zentrale.
+ext.basiskitVersion = '0.2.0'
+
+subprojects {
+    apply plugin: 'java'
+    group = 'at.freudenthaler.kieselstein.addon'
+    version = '0.1.0'
+    repositories { mavenCentral() }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-proc:none']
+    }
+}
+
+// Das Installationspaket: alles, was einrichten.sh beim Kunden braucht, in einem Archiv.
+// Die VS-Code-Erweiterung bringt es mit und spielt es auf Test- und Produktionsserver.
+tasks.register('paket', Tar) {
+    dependsOn ':zentrale:war'
+    def name = "kieselstein-basiskit-${basiskitVersion}"
+    archiveFileName = "${name}.tar.gz"
+    destinationDirectory = layout.buildDirectory.dir('paket')
+    compression = Compression.GZIP
+    into(name) {
+        from('addon-server') { include '*.sh', 'module.xml'; filePermissions { unix('rwxr-xr-x') } }
+        from(project(':zentrale').tasks.named('war'))
+        from(resources.text.fromString(basiskitVersion)) { rename { 'VERSION' } }
+    }
+}

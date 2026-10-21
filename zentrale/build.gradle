@@ -1,0 +1,19 @@
+// Die Addon-Zentrale: Startseite des Addon-Servers.
+apply plugin: 'war'
+version = rootProject.basiskitVersion
+
+dependencies {
+    implementation project(':basis')
+    implementation 'org.primefaces:primefaces:15.0.6'
+    compileOnly 'javax:javaee-api:8.0.1'
+    compileOnly rootProject.kieselsteinApi
+}
+
+war {
+    archiveFileName = 'zentrale.war'
+}
+
+processResources {
+    inputs.property('version', project.version)
+    filesMatching('addon.properties') { expand(version: project.version) }
+}
