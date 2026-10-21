@@ -2,7 +2,6 @@
 
 Alles, was man braucht, um ein Kieselstein-Addon zu bauen, zu testen und auszurollen:
 Addon-Server, Basisschicht, Addon-Zentrale, Vorlage, VS-Code-Erweiterung und Dokumentation.
-Der Vorschlag dazu steht in Nexus (Kieselstein / Entwicklung, „Kieselstein-Addon-Entwicklung Basiskit").
 
 ## Stufen und Installation
 
@@ -81,11 +80,11 @@ vorerst alle Client-Bibliotheken außer dem, was WildFly selbst mitbringt (grobe
   Braucht die Client-Bibliotheken der Kieselstein-Version (Vorgabe: ~/.kieselstein/clients/2.0.0/lib)
   und ein JDK 21.
 
-  Ergebnis am 21.10.2026 gegen den lokalen Kieselstein 2.0.0 (Datenbank BGtech):
+  Ergebnis am 21.10.2026 gegen einen lokalen Kieselstein 2.0.0 mit Testdaten:
 
   ```
   Anmeldung     ok  (848 ms) Benutzer Admin|addon-durchstich|, Mandant 001
-  Fassade lesen ok  (27 ms) Mandant 001: BGtech Metallbau GmbH
+  Fassade lesen ok  (27 ms) Mandant 001: Beispiel GmbH
   Recht am Server ok (6 ms) LP_DARF_PREISE_SEHEN_VERKAUF: ja
   Abmeldung     ok
   ```

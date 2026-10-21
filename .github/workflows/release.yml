@@ -1,0 +1,71 @@
+# Neue Fassung veröffentlichen: Tag v<version> setzen und pushen (z. B. v0.2.0).
+# Baut Zentrale, Installationspaket und VS-Code-Erweiterung und legt beides als Release ab –
+# von dort holen install.sh / install.ps1 und die Update-Prüfung der Erweiterung die Fassung.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  # Gegen diese Kieselstein-Version wird gebaut (öffentliches Paket der Kieselstein ERP eG).
+  KS_VERSION: 2.0.0
+
+jobs:
+  bauen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version prüfen
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          ERW=$(node -p "require('./vscode-erweiterung/package.json').version")
+          KIT=$(sed -n "s/^ext.basiskitVersion = '\(.*\)'/\1/p" build.gradle)
+          echo "Tag $TAG · Erweiterung $ERW · Basiskit $KIT"
+          [ "$TAG" = "$ERW" ] && [ "$TAG" = "$KIT" ] || { echo "Versionen passen nicht zusammen"; exit 1; }
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Kieselstein-Client-Bibliotheken aus dem Zwischenspeicher
+        id: ks
+        uses: actions/cache@v4
+        with:
+          path: ks-client
+          key: kieselstein-client-${{ env.KS_VERSION }}
+
+      - name: Kieselstein-Client-Bibliotheken holen
+        if: steps.ks.outputs.cache-hit != 'true'
+        run: |
+          URL=$(curl -fsSL "https://gitlab.com/api/v4/projects/kieselstein-erp%2Fsources%2Fkieselstein/releases/v$KS_VERSION" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['assets']['links'][0]['url'])")
+          mkdir -p ks-client tmp
+          curl -fsSL "$URL" | tar -xzf - -C tmp --wildcards '*clients/kieselstein-client-*.tar.gz'
+          tar -xzf "$(find tmp -name 'kieselstein-client-*.tar.gz' | head -1)" -C ks-client --strip-components=1 --wildcards '*/lib/*.jar'
+          ls ks-client/lib | grep kieselstein
+
+      - name: Bauen
+        run: KS_CLIENT_LIB=$PWD/ks-client/lib vscode-erweiterung/bauen.sh
+
+      - name: Release ablegen
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            vscode-erweiterung/kieselstein-addon-*.vsix \
+            build/paket/kieselstein-basiskit-*.tar.gz \
+            --title "Basiskit $GITHUB_REF_NAME" \
+            --notes "Installation: \`curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/install.sh | bash\` (Windows: \`irm https://raw.githubusercontent.com/${{ github.repository }}/main/install.ps1 | iex\`)"

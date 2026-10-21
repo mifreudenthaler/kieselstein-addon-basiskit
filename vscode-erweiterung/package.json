@@ -4,8 +4,8 @@
   "description": "Basiskit auf Test und Produktion einrichten, Kieselstein-Addons anlegen, bauen und in den Test laden.",
   "version": "0.2.0",
   "publisher": "freudenthaler",
-  "license": "UNLICENSED",
-  "repository": { "type": "git", "url": "ssh://git@git.freudenthaler.rocks:2222/freudenthaler/kieselstein-addon-basiskit.git" },
+  "license": "SEE LICENSE IN README.md",
+  "repository": { "type": "git", "url": "https://github.com/mifreudenthaler/kieselstein-addon-basiskit.git" },
   "engines": { "vscode": "^1.85.0" },
   "categories": ["Other"],
   "main": "./extension.js",
@@ -41,7 +41,8 @@
       { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und in den Test laden", "category": "Kieselstein", "icon": "$(cloud-upload)" },
       { "command": "kieselsteinAddon.testen", "title": "Tests des Addons ausführen", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.oeffnen", "title": "Addon im Browser öffnen", "category": "Kieselstein" },
-      { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" }
+      { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.updatePruefen", "title": "Nach einer neueren Fassung suchen", "category": "Kieselstein" }
     ],
     "menus": {
       "view/title": [

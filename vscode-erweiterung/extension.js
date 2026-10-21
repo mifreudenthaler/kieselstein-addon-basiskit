@@ -356,6 +356,63 @@ async function fassadeNachschlagen() {
   }
 }
 
+// --- Updates -----------------------------------------------------------------
+
+/** owner/repo aus dem repository-Eintrag der Erweiterung. */
+function githubRepo() {
+  const url = kontext.extension.packageJSON.repository?.url || '';
+  const m = url.match(/github\.com[/:]([^/]+\/[^/.]+)/);
+  return m ? m[1] : null;
+}
+
+function neuer(a, b) {
+  const x = a.split('.').map(Number);
+  const y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+  }
+  return false;
+}
+
+/**
+ * Nach einer neueren Fassung auf GitHub sehen – höchstens einmal am Tag von
+ * selbst, jederzeit über den Befehl. Ohne Internet (beim Kunden üblich) still.
+ */
+async function updatePruefen(vonHand = false) {
+  const repo = githubRepo();
+  if (!repo) return;
+  const zuletzt = kontext.globalState.get('kieselsteinAddon.updateGeprueft', 0);
+  if (!vonHand && Date.now() - zuletzt < 24 * 3600 * 1000) return;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/releases/latest`, { headers: { 'User-Agent': 'kieselstein-addon' }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`GitHub antwortet mit ${r.status}`);
+    const release = await r.json();
+    await kontext.globalState.update('kieselsteinAddon.updateGeprueft', Date.now());
+    const version = String(release.tag_name || '').replace(/^v/, '');
+    const jetzt = kontext.extension.packageJSON.version;
+    const vsix = (release.assets || []).find((a) => a.name.endsWith('.vsix'));
+    if (!vsix || !neuer(version, jetzt)) {
+      if (vonHand) vscode.window.showInformationMessage(`Kieselstein-Addon-Erweiterung ${jetzt} ist aktuell.`);
+      return;
+    }
+    const wahl = await vscode.window.showInformationMessage(
+      `Kieselstein-Addon-Erweiterung ${version} ist verfügbar (installiert: ${jetzt}). Danach lässt sich auch das Basiskit auf den Servern aktualisieren.`,
+      'Aktualisieren', 'Später');
+    if (wahl !== 'Aktualisieren') return;
+    await mitFortschritt(`Erweiterung ${version} installieren`, async () => {
+      const d = await fetch(vsix.browser_download_url, { headers: { 'User-Agent': 'kieselstein-addon' } });
+      if (!d.ok) throw new Error(`Download gescheitert (${d.status})`);
+      const datei = path.join(require('node:os').tmpdir(), vsix.name);
+      require('node:fs').writeFileSync(datei, Buffer.from(await d.arrayBuffer()));
+      await vscode.commands.executeCommand('workbench.extensions.installExtension', vscode.Uri.file(datei));
+    });
+    const neu = await vscode.window.showInformationMessage(`Erweiterung ${version} installiert – VS Code neu laden, um sie zu verwenden.`, 'Neu laden');
+    if (neu) vscode.commands.executeCommand('workbench.action.reloadWindow');
+  } catch (e) {
+    if (vonHand) fehler(new Error(`Keine Update-Prüfung möglich: ${e.message}`));
+  }
+}
+
 // --- Hilfen ------------------------------------------------------------------
 
 async function mitFortschritt(titel, arbeit) {
@@ -407,13 +464,16 @@ function activate(k) {
     'kieselsteinAddon.testen': testen,
     'kieselsteinAddon.oeffnen': oeffnen,
     'kieselsteinAddon.fassade': fassadeNachschlagen,
+    'kieselsteinAddon.updatePruefen': () => updatePruefen(true),
   };
   for (const [id, f] of Object.entries(befehle)) k.subscriptions.push(vscode.commands.registerCommand(id, f));
   k.subscriptions.push(ausgabe, leiste, { dispose: () => clearInterval(takt) },
     vscode.workspace.onDidChangeConfiguration((e) => { if (e.affectsConfiguration('kieselsteinAddon')) { ansicht.neuLaden(); aktualisieren(); } }));
 
+  setTimeout(() => updatePruefen(false), 10000);
+
   // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
-  return { server: s, werkzeug: w, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel };
+  return { server: s, werkzeug: w, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
 }
 
 function deactivate() {}

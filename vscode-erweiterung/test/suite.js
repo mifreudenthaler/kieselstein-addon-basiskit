@@ -53,6 +53,11 @@ exports.run = async () => {
     assert.ok(st.laeuft && st.basiskit === '0.2.0', JSON.stringify(st));
   });
 
+  await pruefen('Update-Prüfung: Versionen vergleichen, Repo erkennen', async () => {
+    assert.ok(api.neuer('0.2.1', '0.2.0') && api.neuer('1.0.0', '0.9.9') && !api.neuer('0.2.0', '0.2.0') && !api.neuer('0.1.9', '0.2.0'));
+    assert.strictEqual(api.githubRepo(), 'mifreudenthaler/kieselstein-addon-basiskit');
+  });
+
   await pruefen('Freigabe-Schlüssel aus der Kette übernommen', async () => {
     const k = await api.schluessel();
     const r = await api.server.ausfuehren(knoten[2].srv, `cat '${knoten[2].srv.kieselstein}/addons/config/freigabe.schluessel'`);

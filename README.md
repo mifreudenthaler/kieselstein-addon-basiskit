@@ -5,10 +5,12 @@ Das Basiskit macht es leicht, Zusatzprogramme (Addons) für Kieselstein ERP zu b
 ## Installation beim Kunden
 
 - VS Code installieren
-- Erweiterung installieren: `code --install-extension kieselstein-addon-<version>.vsix` (gebaut mit `vscode-erweiterung/bauen.sh`)
+- Erweiterung installieren – im Terminal:
+  `curl -fsSL https://raw.githubusercontent.com/mifreudenthaler/kieselstein-addon-basiskit/main/install.sh | bash`
+  (Windows, PowerShell: `irm https://raw.githubusercontent.com/mifreudenthaler/kieselstein-addon-basiskit/main/install.ps1 | iex`)
 - Seitenleiste „Kieselstein-Addons" → **Server eintragen**: Test und Produktion (Entwicklung optional), je SSH-Zugang und Kieselstein-Ordner
 - Je Server **Basiskit einrichten** → Addon-Server und Zentrale werden installiert, verbunden und gestartet
 - Zentrale im Browser öffnen, mit dem Kieselstein-Benutzer anmelden
 - Addon bauen und in den Test laden (VS Code), in die Produktion über **In Produktion ausrollen** in der Zentrale
 
-Technische Details: [docs/technik.md](docs/technik.md)
+Neue Fassungen meldet die Erweiterung selbst. Technische Details: [docs/technik.md](docs/technik.md)
