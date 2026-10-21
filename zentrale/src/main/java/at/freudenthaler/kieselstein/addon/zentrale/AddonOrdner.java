@@ -149,6 +149,30 @@ final class AddonOrdner {
         return p;
     }
 
+    /**
+     * Was es bei einem Addon einzustellen gibt: die allgemeinen Einstellungen
+     * und die Beschreibung aus seinem Paket (WEB-INF/classes/einstellungen.properties).
+     */
+    static List<at.freudenthaler.kieselstein.addon.basis.Einstellung> einstellungen(String name) throws IOException {
+        List<at.freudenthaler.kieselstein.addon.basis.Einstellung> liste = new ArrayList<>(
+                at.freudenthaler.kieselstein.addon.basis.Einstellung.lesen(new java.io.StringReader(
+                        at.freudenthaler.kieselstein.addon.basis.Einstellungen.ALLGEMEIN)));
+        Path war = war(name);
+        if (Files.exists(war)) {
+            try (ZipFile zip = new ZipFile(war.toFile())) {
+                ZipEntry e = zip.getEntry("WEB-INF/classes/einstellungen.properties");
+                if (e != null) {
+                    try (Reader r = new java.io.InputStreamReader(zip.getInputStream(e), StandardCharsets.UTF_8)) {
+                        List<at.freudenthaler.kieselstein.addon.basis.Einstellung> eigene =
+                                at.freudenthaler.kieselstein.addon.basis.Einstellung.lesen(r);
+                        liste.addAll(0, eigene); // die eigenen zuerst, das Allgemeine danach
+                    }
+                }
+            }
+        }
+        return liste;
+    }
+
     static String sha256(Path datei) throws IOException {
         try (InputStream in = Files.newInputStream(datei)) {
             MessageDigest md = MessageDigest.getInstance("SHA-256");

@@ -17,6 +17,7 @@ import javax.faces.view.ViewScoped;
 import javax.inject.Inject;
 import javax.inject.Named;
 
+import at.freudenthaler.kieselstein.addon.basis.Einstellung;
 import at.freudenthaler.kieselstein.addon.basis.Einstellungen;
 import at.freudenthaler.kieselstein.addon.basis.Kieselstein;
 import at.freudenthaler.kieselstein.addon.basis.Sitzung;
@@ -45,7 +46,9 @@ public class Verwaltung implements Serializable {
 
     private Boolean darf;
     private String gewaehlt;
-    private String einstellungenText;
+    private List<Einstellung> formular;
+    private Map<String, String> eingabe;
+    private java.util.Set<String> geheimGesetzt;
     private Map<String, String[]> produktion;
     private List<Zeile> zeilen;
     private Zeile ausrollen;
@@ -172,24 +175,81 @@ public class Verwaltung implements Serializable {
 
     // --- Einstellungen ----------------------------------------------------
 
+    /** Öffnet das Formular mit den Einstellungen eines Addons. */
     public void einstellungenOeffnen(String name) {
         pruefenUndMelden(() -> {
             gewaehlt = name;
-            einstellungenText = Einstellungen.rohLesen(name);
+            formular = AddonOrdner.einstellungen(name);
+            java.util.Properties werte = Einstellungen.werteLesen(name);
+            eingabe = new java.util.HashMap<>();
+            geheimGesetzt = new java.util.HashSet<>();
+            for (Einstellung e : formular) {
+                String w = werte.getProperty(e.getSchluessel(), "");
+                if (e.getArt() == Einstellung.Art.GEHEIM) {
+                    if (!w.isEmpty()) {
+                        geheimGesetzt.add(e.getSchluessel());
+                    }
+                    eingabe.put(e.getSchluessel(), "");
+                } else {
+                    eingabe.put(e.getSchluessel(), w);
+                }
+            }
         });
+    }
+
+    /** Ein Feld zurück auf die Vorgabe des Addons. */
+    public void vorgabe(String schluessel) {
+        if (eingabe != null) {
+            eingabe.put(schluessel, "");
+        }
     }
 
     public void einstellungenSichern() {
         pruefenUndMelden(() -> {
-            Einstellungen.rohSchreiben(gewaehlt, einstellungenText == null ? "" : einstellungenText);
-            AddonOrdner.verlauf(sitzung.getBenutzer(), "Einstellungen geändert", gewaehlt, "");
-            melden(FacesMessage.SEVERITY_INFO, "Einstellungen von " + gewaehlt + " gesichert – wirksam beim nächsten Zugriff des Addons");
+            List<String> fehler = new java.util.ArrayList<>();
+            for (Einstellung e : formular) {
+                String grund = e.pruefen(eingabe.get(e.getSchluessel()));
+                if (grund != null) {
+                    fehler.add(grund);
+                }
+            }
+            if (!fehler.isEmpty()) {
+                FacesContext.getCurrentInstance().validationFailed();
+                melden(FacesMessage.SEVERITY_ERROR, "Nicht gesichert – " + String.join("; ", fehler));
+                return;
+            }
+            java.util.Properties vorher = Einstellungen.werteLesen(gewaehlt);
+            Einstellungen.speichern(gewaehlt, formular, eingabe);
+            java.util.Properties nachher = Einstellungen.werteLesen(gewaehlt);
+            int geaendert = 0;
+            for (Einstellung e : formular) {
+                String a = wirksam(e, vorher.getProperty(e.getSchluessel()));
+                String b = wirksam(e, nachher.getProperty(e.getSchluessel()));
+                if (!a.equals(b)) {
+                    geaendert++;
+                    AddonOrdner.verlauf(sitzung.getBenutzer(), e.getArt() == Einstellung.Art.GEHEIM
+                            ? "Einstellung „" + e.getTitel() + "“ geändert"
+                            : "Einstellung „" + e.getTitel() + "“: " + a + " → " + b, gewaehlt, "");
+                }
+            }
+            melden(FacesMessage.SEVERITY_INFO, geaendert == 0 ? "Nichts geändert."
+                    : geaendert + (geaendert == 1 ? " Einstellung" : " Einstellungen") + " von " + gewaehlt
+                            + " gesichert – das Addon liest sie beim nächsten Zugriff.");
         });
     }
 
+    /** Der Wert, der tatsächlich gilt – ohne eigenen Wert die Vorgabe. */
+    private static String wirksam(Einstellung e, String wert) {
+        return wert == null || wert.isBlank() ? e.getVorgabeText() : (e.getArt() == Einstellung.Art.GEHEIM ? "gesetzt" : wert.trim());
+    }
+
     public String getGewaehlt() { return gewaehlt; }
-    public String getEinstellungenText() { return einstellungenText; }
-    public void setEinstellungenText(String t) { this.einstellungenText = t; }
+    public String getGewaehltTitel() {
+        return getAddons().stream().filter(z -> z.getName().equals(gewaehlt)).map(Zeile::getTitel).findFirst().orElse(gewaehlt);
+    }
+    public List<Einstellung> getFormular() { return formular; }
+    public Map<String, String> getEingabe() { return eingabe; }
+    public boolean geheimGesetzt(String schluessel) { return geheimGesetzt != null && geheimGesetzt.contains(schluessel); }
 
     // --- Hilfen -----------------------------------------------------------
 

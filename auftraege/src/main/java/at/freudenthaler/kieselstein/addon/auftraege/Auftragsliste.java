@@ -19,6 +19,7 @@ import org.primefaces.model.SortMeta;
 
 import com.lp.server.util.fastlanereader.service.query.QueryParameters;
 
+import at.freudenthaler.kieselstein.addon.basis.Einstellungen;
 import at.freudenthaler.kieselstein.addon.basis.Liste;
 import at.freudenthaler.kieselstein.addon.basis.Protokoll;
 import at.freudenthaler.kieselstein.addon.basis.Sitzung;
@@ -50,6 +51,25 @@ public class Auftragsliste implements Serializable {
             darfLesen = sitzung.hatRecht(RECHT_LESEN);
         }
         return darfLesen;
+    }
+
+    private transient Einstellungen einstellungen;
+
+    private Einstellungen einstellungen() {
+        if (einstellungen == null) {
+            einstellungen = Einstellungen.fuer("auftraege");
+        }
+        return einstellungen;
+    }
+
+    /** Einstellung „Zeilen je Seite" (Verwaltung der Zentrale). */
+    public int getZeilenJeSeite() {
+        return einstellungen().zahl("zeilen_je_seite");
+    }
+
+    /** Einstellung „Überfällige Termine rot markieren". */
+    public boolean isUeberfaelligeMarkieren() {
+        return einstellungen().schalter("ueberfaellige_markieren");
     }
 
     public LazyDataModel<Auftrag> getModell() {

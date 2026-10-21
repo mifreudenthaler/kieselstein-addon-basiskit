@@ -40,6 +40,6 @@ public class Seite implements Serializable {
 
     public String getBegruessung() {
         return Texte.begruessung(sitzung.getBenutzer(),
-                Einstellungen.fuer("__NAME__").text("gruss", "Willkommen"));
+                Einstellungen.fuer("__NAME__").text("gruss"));
     }
 }

@@ -4,6 +4,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.faces.context.FacesContext;
 import javax.inject.Named;
 import javax.servlet.http.HttpServletRequest;
@@ -12,6 +13,22 @@ import javax.servlet.http.HttpServletRequest;
 @Named
 @RequestScoped
 public class Rahmen {
+
+    /** Wer Addons verwalten darf (Kieselstein-Administrationsrecht). */
+    public static final String RECHT_VERWALTEN = "LP_SYSTEM_CUD";
+
+    @Inject
+    Sitzung sitzung;
+
+    private Boolean verwalten;
+
+    /** Verweis „Verwaltung" im Kopf – nur für Benutzer mit Administrationsrecht. */
+    public boolean isVerwalten() {
+        if (verwalten == null) {
+            verwalten = sitzung.isAngemeldet() && sitzung.hatRecht(RECHT_VERWALTEN);
+        }
+        return verwalten;
+    }
 
     public boolean isTest() {
         return !"produktion".equalsIgnoreCase(Kieselstein.stufe());

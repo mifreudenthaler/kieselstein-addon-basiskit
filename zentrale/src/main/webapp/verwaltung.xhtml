@@ -240,12 +240,53 @@
                     </p:dialog>
 
                     <!-- ============ Dialog: Einstellungen ============ -->
-                    <p:dialog id="einst" widgetVar="einstDlg" header="Einstellungen #{verwaltung.gewaehlt}" modal="true" width="640">
-                        <p class="ks-klein" style="margin-top:0">Eine Einstellung je Zeile: <code>schluessel=wert</code>. Gilt nur für diese Installation (#{verwaltung.stufe}).
-                            Vorgegeben: <code>max_gleichzeitige_anfragen=25</code>.</p>
-                        <p:inputTextarea value="#{verwaltung.einstellungenText}" rows="14" style="width:100%;font-family:monospace" autoResize="false"/>
+                    <p:dialog id="einst" widgetVar="einstDlg" header="Einstellungen – #{verwaltung.gewaehltTitel}" modal="true" width="680"
+                              resizable="false" styleClass="ks-einstellungen-dlg">
+                        <h:panelGroup id="einstInhalt" layout="block">
+                            <p class="ks-klein" style="margin-top:0">
+                                Gilt nur für diesen Addon-Server (#{verwaltung.stufe}). Leer gelassen gilt die Vorgabe des Addons.
+                            </p>
+                            <p:messages for="einstInhalt" closable="true"/>
+                            <ui:repeat value="#{verwaltung.formular}" var="e">
+                                <div class="ks-einstellung">
+                                    <div class="ks-einstellung-text">
+                                        <label class="ks-einstellung-titel">#{e.titel}</label>
+                                        <div class="ks-klein">#{e.hilfe}</div>
+                                        <div class="ks-klein">Vorgabe: #{e.vorgabeText}#{e.grenzenText}</div>
+                                    </div>
+                                    <div class="ks-einstellung-feld">
+                                        <ui:fragment rendered="#{e.artName eq 'schalter'}">
+                                            <p:selectOneButton value="#{verwaltung.eingabe[e.schluessel]}">
+                                                <f:selectItem itemLabel="Vorgabe" itemValue=""/>
+                                                <f:selectItem itemLabel="Ja" itemValue="ja"/>
+                                                <f:selectItem itemLabel="Nein" itemValue="nein"/>
+                                            </p:selectOneButton>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{e.artName eq 'auswahl'}">
+                                            <p:selectOneMenu value="#{verwaltung.eingabe[e.schluessel]}" style="min-width:12rem">
+                                                <f:selectItem itemLabel="Vorgabe (#{e.vorgabeText})" itemValue=""/>
+                                                <f:selectItems value="#{e.werte}" var="w" itemLabel="#{w}" itemValue="#{w}"/>
+                                            </p:selectOneMenu>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{e.artName eq 'zahl'}">
+                                            <p:inputText value="#{verwaltung.eingabe[e.schluessel]}" placeholder="#{e.vorgabe}" style="width:8rem" type="number"/>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{e.artName eq 'text'}">
+                                            <p:inputText value="#{verwaltung.eingabe[e.schluessel]}" placeholder="#{e.vorgabe}" style="width:16rem"/>
+                                        </ui:fragment>
+                                        <ui:fragment rendered="#{e.artName eq 'geheim'}">
+                                            <p:password value="#{verwaltung.eingabe[e.schluessel]}" style="width:16rem"
+                                                        placeholder="#{verwaltung.geheimGesetzt(e.schluessel) ? 'gesetzt – leer lassen = unverändert' : 'nicht gesetzt'}"/>
+                                        </ui:fragment>
+                                    </div>
+                                </div>
+                            </ui:repeat>
+                        </h:panelGroup>
                         <f:facet name="footer">
-                            <p:commandButton value="Sichern" action="#{verwaltung.einstellungenSichern}" process="@this einst" update=":f:meldung" oncomplete="PF('einstDlg').hide()"/>
+                            <p:commandButton value="Abbrechen" type="button" onclick="PF('einstDlg').hide()" styleClass="ui-button-flat"/>
+                            <p:commandButton value="Sichern" action="#{verwaltung.einstellungenSichern}" process="@this einst"
+                                             update=":f:meldung einstInhalt :f:reiter"
+                                             oncomplete="if (!args.validationFailed) PF('einstDlg').hide()"/>
                         </f:facet>
                     </p:dialog>
                 </h:form>

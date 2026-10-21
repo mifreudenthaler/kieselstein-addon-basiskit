@@ -23,9 +23,19 @@ Der Vorschlag dazu steht in Nexus (Kieselstein / Entwicklung, „Kieselstein-Add
 - `zentrale/` – die Addon-Zentrale (PrimeFaces): Anmeldung mit Kieselstein-Benutzer, Startseite
   mit den installierten Addons (Titel/Beschreibung aus `WEB-INF/classes/addon.properties` des Addons),
   Stufe Test/Produktion, Rechteprobe.
-- `zentrale/` Verwaltung (`/verwaltung.xhtml`, nur mit LP_SYSTEM_CUD): je Addon neu starten,
-  abschalten/einschalten, Einstellungen (`addons/config/<addon>.properties`, gelesen über
-  `Einstellungen.fuer(...)`), Verlauf (`addons/config/verlauf.log`).
+- `zentrale/` Verwaltung (`/verwaltung.xhtml`, oben rechts verlinkt, nur mit LP_SYSTEM_CUD):
+  Reiter Addons (Karten mit Test/Produktion-Vergleich, neu starten, abschalten, Einstellungen,
+  In Produktion ausrollen …), Ressourcen (je Addon Anfragen, Dauer davon Kieselstein, Rechenzeit,
+  Speicher mit Anteil, langsamste Anfragen, Addon-Server, Speicheraufnahme), Protokolle (alle Addons
+  plus Fehler/Warnungen des Addon-Servers, filterbar) und Verlauf (`addons/config/verlauf.log`).
+- Einstellungen: Jedes Addon beschreibt sie in `src/main/resources/einstellungen.properties`
+  (titel, hilfe, art text/zahl/schalter/auswahl/geheim, vorgabe, min/max, werte). Die Verwaltung
+  zeigt daraus ein Formular und prüft die Eingaben; gespeichert werden nur Abweichungen in
+  `addons/config/<addon>.properties`. Im Addon: `Einstellungen.fuer("auftraege").zahl("zeilen_je_seite")`.
+- Messung und Protokoll (automatisch über `META-INF/web-fragment.xml` der Basisschicht):
+  `addons/logs/messung/<addon>.tsv` (je Minute, 24 h), `addons/logs/addons/<addon>.log`.
+  Eigene Einträge: `Protokoll.info/warnung/fehler(...)`. Schutz: höchstens
+  `max_gleichzeitige_anfragen` (Vorgabe 25) gleichzeitig, darüber 503.
   Freigabe Test → Produktion: Die Test-Zentrale schickt das laufende WAR (Byte für Byte) an die
   Produktions-Zentrale (`PRODUKTION_URL`), signiert mit HMAC über `config/freigabe.schluessel`
   (bei der Einrichtung einmal von Test nach Produktion kopieren). Die Produktion prüft Stufe,

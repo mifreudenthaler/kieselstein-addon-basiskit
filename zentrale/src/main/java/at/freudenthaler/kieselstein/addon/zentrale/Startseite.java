@@ -27,7 +27,7 @@ import at.freudenthaler.kieselstein.addon.basis.Sitzung;
 public class Startseite {
 
     /** Das Recht, mit dem man Addons verwalten und freigeben darf (Entscheidung 21.10.2026). */
-    static final String RECHT_VERWALTEN = "LP_SYSTEM_CUD";
+    static final String RECHT_VERWALTEN = at.freudenthaler.kieselstein.addon.basis.Rahmen.RECHT_VERWALTEN;
 
     @Inject
     Sitzung sitzung;

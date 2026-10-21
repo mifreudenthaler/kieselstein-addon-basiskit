@@ -127,3 +127,9 @@ html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active { border-color
 html body .ui-tabs .ui-tabs-nav li.ui-tabs-header a:focus { box-shadow: none !important; }
 html body .ui-tabs .ui-tabs-nav .ui-tabs-actions, html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active::after { background: var(--ks-petrol); }
 html body .ui-messages .ui-messages-info .ui-messages-info-icon, html body .ui-messages .ui-messages-info .ui-messages-close { color: #1e6b34; }
+
+/* Einstellungen als Formular */
+.ks-einstellung { display: grid; grid-template-columns: 1fr auto; gap: 1.5rem; align-items: center; padding: .9rem 0; border-bottom: 1px solid #e6eef2; }
+.ks-einstellung:last-child { border-bottom: none; }
+.ks-einstellung-titel { font-weight: 600; display: block; margin-bottom: .15rem; }
+.ks-einstellung-feld { justify-self: end; }

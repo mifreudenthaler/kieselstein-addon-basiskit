@@ -29,6 +29,7 @@
         <ui:fragment rendered="#{sitzung.angemeldet}">
             <div class="ks-rechts">
                 <a href="/">Addons</a>
+                <h:outputLink value="/verwaltung.xhtml" rendered="#{rahmen.verwalten}">Verwaltung</h:outputLink>
                 <span class="ks-wer">#{sitzung.benutzer} · Mandant #{sitzung.mandant}</span>
                 <a href="/abmelden.xhtml">Abmelden</a>
             </div>

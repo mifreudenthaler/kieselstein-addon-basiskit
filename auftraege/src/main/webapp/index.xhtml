@@ -15,7 +15,7 @@
             <ui:fragment rendered="#{auftragsliste.darfLesen}">
                 <h:form id="f">
                     <p:dataTable id="tabelle" value="#{auftragsliste.modell}" var="a" lazy="true"
-                                 paginator="true" rows="50" rowsPerPageTemplate="25,50,100"
+                                 paginator="true" rows="#{auftragsliste.zeilenJeSeite}" rowsPerPageTemplate="25,50,100"
                                  paginatorPosition="bottom"
                                  currentPageReportTemplate="{startRecord}–{endRecord} von {totalRecords} Aufträgen"
                                  paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink} {PageLinks} {NextPageLink} {LastPageLink} {RowsPerPageDropdown}"
@@ -43,7 +43,7 @@
                                           value="versendet #{a.versandArt}"/>
                         </p:column>
                         <p:column headerText="Termin" style="width:7rem" styleClass="ks-datum">
-                            <h:outputText value="#{a.termin}" styleClass="#{a.ueberfaellig ? 'ks-ueberfaellig' : ''}">
+                            <h:outputText value="#{a.termin}" styleClass="#{auftragsliste.ueberfaelligeMarkieren and a.ueberfaellig ? 'ks-ueberfaellig' : ''}">
                                 <f:convertDateTime pattern="dd.MM.yyyy" timeZone="Europe/Vienna"/>
                             </h:outputText>
                         </p:column>

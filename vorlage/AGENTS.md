@@ -13,7 +13,8 @@ Dieses Addon läuft im Kieselstein-Addon-Server und ist mit dem Basiskit gebaut.
 - `Sitzung`: Anmeldung (kommt von der Zentrale), `hatRecht("…")` am Kieselstein-Server.
 - `Kieselstein.fassade(XFac.class)` und `Kieselstein.rufe(() -> …)`: Aufrufe in die Kieselstein-Fachlogik.
 - `Liste`: Listen wie im Client (FastLaneReader), z. B. `new Liste(QueryParameters.UC_ID_AUFTRAG, sitzung.getClient())`.
-- `Einstellungen.fuer("__NAME__")`: Einstellungen dieser Installation, gepflegt in der Verwaltung der Zentrale.
+- `Einstellungen.fuer("__NAME__")`: Einstellungen dieser Installation. Jede Einstellung in `src/main/resources/einstellungen.properties` beschreiben (titel, hilfe, art, vorgabe) – die Zentrale macht daraus ein Formular. Nie undokumentierte Schlüssel verwenden.
+- `Protokoll.info/warnung/fehler(...)`: Einträge im Protokoll des Addons (Zentrale → Verwaltung → Protokolle). Messung und Fehlerprotokoll passieren von selbst.
 
 ## Regeln
 
