@@ -360,14 +360,20 @@ async function addonAnlegen() {
       if (!wahl) return null;
       // Kein Datei-Dialog des Systems: Über Fernsitzungen erscheint der unsichtbar und blockiert den Editor.
       const fsx = require('node:fs');
-      const vorschlag = path.join(require('node:os').homedir(), 'kieselstein-addons');
+      // Vorschlag aus der Umgebung: neben der Kieselstein-Installation der ersten Stufe –
+      // nicht in addons/, das ist der Laufzeitbereich (Server, Pakete, Einstellungen, Protokolle).
+      const erste = s.ersteStufe(serverListe());
+      const vorschlag = erste && !erste.ssh
+        ? path.join(erste.kieselstein, 'addon-quellen')
+        : path.join(require('node:os').homedir(), 'kieselstein-addons');
       const zielPfad = await vscode.window.showInputBox({
         title: 'Neues Addon-Projekt',
-        prompt: 'Ordner für das Addon-Projekt – wird angelegt, falls es ihn noch nicht gibt',
+        prompt: `Ordner für den Quellcode der Addons (${erste ? s.STUFEN_NAME[erste.stufe] : 'diese Maschine'}) – wird angelegt, falls es ihn noch nicht gibt`,
         value: vorschlag,
         validateInput: (v) => {
           if (!v || !path.isAbsolute(v.replace(/^~(?=\/|$)/, require('node:os').homedir()))) return 'Vollständiger Pfad, z. B. ' + vorschlag;
           const p = v.replace(/^~(?=\/|$)/, require('node:os').homedir());
+          if (/[\\/]addons([\\/]|$)/.test(p)) return 'Nicht in addons/ – dort läuft der Addon-Server. Daneben, z. B. ' + vorschlag;
           if (fsx.existsSync(p) && fsx.readdirSync(p).filter((n) => !n.startsWith('.')).length) return 'Der Ordner ist nicht leer';
           return null;
         },
