@@ -13,5 +13,6 @@ war {
 }
 
 processResources {
+    inputs.property('version', project.version)
     filesMatching('addon.properties') { expand(version: project.version) }
 }

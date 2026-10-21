@@ -54,8 +54,8 @@ h1.ks-h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 .2rem; color: var(--
 .ks-anmelden .ui-button { width: 100%; }
 
 /* Buttons und Tabellen */
-.ui-button { background: var(--ks-petrol); border-color: var(--ks-petrol); }
-.ui-button:enabled:hover { background: var(--ks-petrol-dunkel); border-color: var(--ks-petrol-dunkel); }
+html body .ui-button { background: var(--ks-petrol); border-color: var(--ks-petrol); }
+html body .ui-button:enabled:hover { background: var(--ks-petrol-dunkel); border-color: var(--ks-petrol-dunkel); }
 .ui-datatable .ui-datatable-thead > tr > th { background: var(--ks-hellblau); color: var(--ks-text); font-weight: 600; }
 .ui-datatable .ui-datatable-data > tr.ui-state-highlight, .ui-datatable .ui-datatable-data > tr:hover { background: var(--ks-hellblau); }
 .ks-zahl { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -70,3 +70,10 @@ h1.ks-h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 .2rem; color: var(--
 .ks-status-storniert { background: #f6dede; color: #8b1d1d; text-decoration: line-through; }
 .ks-status-gestoppt { background: #f6dede; color: #8b1d1d; }
 .ks-ueberfaellig { color: #b3261e; font-weight: 600; }
+
+/* Umrandete Knöpfe und Links in Petrol statt im Blau des Themes */
+html body .ui-button.ui-button-outlined { background: transparent; color: var(--ks-petrol); border-color: var(--ks-mittelblau); }
+html body .ui-button.ui-button-outlined:enabled:hover { background: var(--ks-hellblau); color: var(--ks-petrol-dunkel); border-color: var(--ks-petrol); }
+html body .ui-button.ui-button-flat { background: transparent; color: var(--ks-petrol); border-color: transparent; }
+html body .ui-messages .ui-messages-info { background: #dff3e4; border-color: #9fd3ad; color: #1e6b34; }
+html body .ui-messages .ui-messages-error { background: #f6dede; border-color: #e3a5a5; color: #8b1d1d; }

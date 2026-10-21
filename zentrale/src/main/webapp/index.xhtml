@@ -56,6 +56,9 @@
                     <dt>Kieselstein</dt><dd>#{startseite.kieselsteinServer} · Version #{startseite.kieselsteinVersion}</dd>
                     <dt>Stufe</dt><dd>#{startseite.stufe}</dd>
                     <dt>Addons verwalten</dt><dd>#{startseite.darfVerwalten ? 'ja (LP_SYSTEM_CUD)' : 'nein'} – am Kieselstein-Server geprüft</dd>
+                    <ui:fragment rendered="#{startseite.darfVerwalten}">
+                        <dt></dt><dd><a href="/verwaltung.xhtml" style="color:var(--ks-petrol);font-weight:600">Zur Verwaltung →</a></dd>
+                    </ui:fragment>
                 </dl>
             </div>
         </ui:fragment>

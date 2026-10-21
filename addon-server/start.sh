@@ -12,6 +12,7 @@ export JAVA_OPTS="-Xms64m -Xmx1024m --enable-preview -Djava.net.preferIPv4Stack=
  -Dkieselstein.addons.dir=$ADDONS \
  -Dkieselstein.addons.stufe=${STUFE:-test} \
  -Dkieselstein.server=${KIESELSTEIN_SERVER:-localhost:8080} \
+ -Dkieselstein.addons.produktion=${PRODUKTION_URL:-} \
  -Djboss.server.log.dir=$ADDONS/logs"
 exec "$ADDONS/server/bin/standalone.sh" -c addon-standalone.xml -b 0.0.0.0 \
   -Djboss.socket.binding.port-offset="${PORT_VERSATZ:-200}"

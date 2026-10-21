@@ -1,0 +1,87 @@
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
+                xmlns:f="http://xmlns.jcp.org/jsf/core"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+                xmlns:p="http://primefaces.org/ui"
+                template="/basiskit/rahmen.xhtml">
+    <ui:param name="titel" value="Verwaltung"/>
+    <ui:define name="inhalt">
+        <div class="ks-inhalt breit">
+            <ui:fragment rendered="#{not verwaltung.darf}">
+                <h1 class="ks-h1">Verwaltung</h1>
+                <p class="ks-unterzeile">Dafür fehlt Ihnen in Kieselstein das Administrationsrecht (LP_SYSTEM_CUD).</p>
+            </ui:fragment>
+
+            <ui:fragment rendered="#{verwaltung.darf}">
+                <h1 class="ks-h1">Verwaltung</h1>
+                <p class="ks-unterzeile">
+                    Stufe #{verwaltung.stufe}
+                    <h:outputText rendered="#{verwaltung.freigabeMoeglich}" value=" · Freigabe an #{verwaltung.produktionsAdresse}#{verwaltung.produktionErreichbar ? '' : ' (nicht erreichbar)'}"/>
+                    <h:outputText rendered="#{verwaltung.test and not verwaltung.freigabeMoeglich}" value=" · Freigabe nicht eingerichtet"/>
+                </p>
+
+                <h:form id="f">
+                    <p:messages id="meldung" closable="true"/>
+                    <p:confirmDialog global="true" showEffect="fade" hideEffect="fade" responsive="true">
+                        <p:commandButton value="Ja" type="button" styleClass="ui-confirmdialog-yes"/>
+                        <p:commandButton value="Nein" type="button" styleClass="ui-confirmdialog-no ui-button-flat"/>
+                    </p:confirmDialog>
+
+                    <p:dataTable id="addons" value="#{verwaltung.addons}" var="z" size="small" emptyMessage="Keine Addons installiert">
+                        <p:column headerText="Addon">
+                            <strong>#{z.titel}</strong>
+                            <div style="color:var(--ks-grau);font-size:.8rem">#{z.name}.war · #{z.geaendert}</div>
+                        </p:column>
+                        <p:column headerText="Version" style="width:7rem" styleClass="ks-zahl">#{z.version}</p:column>
+                        <p:column headerText="Zustand" style="width:9rem">
+                            <span class="ks-status #{z.laeuft ? 'ks-status-erledigt' : (z.abgeschaltet ? 'ks-status-angelegt' : 'ks-status-gestoppt')}">#{z.zustand}</span>
+                        </p:column>
+                        <p:column headerText="In Produktion" style="width:12rem" rendered="#{verwaltung.freigabeMoeglich}">
+                            #{z.produktion}
+                        </p:column>
+                        <p:column headerText="" style="width:30rem">
+                            <p:commandButton value="Neu starten" action="#{verwaltung.neuStarten(z.name)}" update="@form" styleClass="ui-button-outlined" style="margin-right:.3rem"/>
+                            <p:commandButton value="Abschalten" action="#{verwaltung.abschalten(z.name)}" update="@form" styleClass="ui-button-outlined" style="margin-right:.3rem"
+                                             rendered="#{not z.zentrale and not z.abgeschaltet}">
+                                <p:confirm header="Abschalten" message="#{z.titel} abschalten? Es ist dann für niemanden mehr erreichbar."/>
+                            </p:commandButton>
+                            <p:commandButton value="Einschalten" action="#{verwaltung.einschalten(z.name)}" update="@form" style="margin-right:.3rem"
+                                             rendered="#{z.abgeschaltet}"/>
+                            <p:commandButton value="Einstellungen" action="#{verwaltung.einstellungenOeffnen(z.name)}" update=":f:einst" oncomplete="PF('einstDlg').show()"
+                                             styleClass="ui-button-outlined" style="margin-right:.3rem" rendered="#{not z.zentrale}"/>
+                            <p:commandButton value="Für Produktion freigeben" action="#{verwaltung.freigeben(z.name)}" update="@form"
+                                             rendered="#{verwaltung.freigabeMoeglich and z.laeuft and not z.zentrale}"
+                                             style="background:var(--ks-orange);border-color:var(--ks-orange);color:var(--ks-text)">
+                                <p:confirm header="Für Produktion freigeben"
+                                           message="#{z.titel} #{z.version} ist getestet und geht jetzt in die Produktion (dort läuft: #{z.produktion}). Freigeben?"/>
+                            </p:commandButton>
+                            <p:commandButton value="Zurück auf #{z.vorigeVersion}" action="#{verwaltung.zurueck(z.name, z.archiv[0])}" update="@form"
+                                             styleClass="ui-button-outlined" rendered="#{not verwaltung.test and not empty z.archiv}">
+                                <p:confirm header="Zurück auf die vorige Version"
+                                           message="#{z.titel} auf #{z.archiv[0]} zurücksetzen? Die laufende Version kommt ins Archiv."/>
+                            </p:commandButton>
+                        </p:column>
+                    </p:dataTable>
+
+                    <h2 style="font-size:1.1rem;margin:2.5rem 0 .6rem;color:var(--ks-petrol-dunkel)">Verlauf</h2>
+                    <p:dataTable value="#{verwaltung.verlauf}" var="v" size="small" emptyMessage="Noch nichts geschehen">
+                        <p:column headerText="Zeit" style="width:11rem" styleClass="ks-datum">#{v[0].replace('T', ' ')}</p:column>
+                        <p:column headerText="Wer" style="width:9rem">#{v[1]}</p:column>
+                        <p:column headerText="Was">#{v[2]}</p:column>
+                        <p:column headerText="Addon" style="width:10rem">#{v[3]}</p:column>
+                        <p:column headerText="Version" style="width:7rem" styleClass="ks-zahl">#{v[4]}</p:column>
+                    </p:dataTable>
+
+                    <p:dialog id="einst" widgetVar="einstDlg" header="Einstellungen #{verwaltung.gewaehlt}" modal="true" width="640">
+                        <p class="ks-unterzeile">Eine Einstellung je Zeile: <code>schluessel=wert</code>. Gilt nur für diese Installation (#{verwaltung.stufe}).</p>
+                        <p:inputTextarea value="#{verwaltung.einstellungenText}" rows="14" style="width:100%;font-family:monospace" autoResize="false"/>
+                        <f:facet name="footer">
+                            <p:commandButton value="Sichern" action="#{verwaltung.einstellungenSichern}" update=":f:meldung" oncomplete="PF('einstDlg').hide()"/>
+                        </f:facet>
+                    </p:dialog>
+                </h:form>
+
+            </ui:fragment>
+        </div>
+    </ui:define>
+</ui:composition>

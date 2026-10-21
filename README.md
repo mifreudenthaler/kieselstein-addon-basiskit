@@ -23,6 +23,15 @@ Der Vorschlag dazu steht in Nexus (Kieselstein / Entwicklung, „Kieselstein-Add
 - `zentrale/` – die Addon-Zentrale (PrimeFaces): Anmeldung mit Kieselstein-Benutzer, Startseite
   mit den installierten Addons (Titel/Beschreibung aus `WEB-INF/classes/addon.properties` des Addons),
   Stufe Test/Produktion, Rechteprobe.
+- `zentrale/` Verwaltung (`/verwaltung.xhtml`, nur mit LP_SYSTEM_CUD): je Addon neu starten,
+  abschalten/einschalten, Einstellungen (`addons/config/<addon>.properties`, gelesen über
+  `Einstellungen.fuer(...)`), Verlauf (`addons/config/verlauf.log`).
+  Freigabe Test → Produktion: Die Test-Zentrale schickt das laufende WAR (Byte für Byte) an die
+  Produktions-Zentrale (`PRODUKTION_URL`), signiert mit HMAC über `config/freigabe.schluessel`
+  (bei der Einrichtung einmal von Test nach Produktion kopieren). Die Produktion prüft Stufe,
+  Signatur, Zeit (±10 min) und Prüfsumme, legt das laufende Paket ins Archiv, setzt das neue ein
+  und fällt bei gescheitertem Start von selbst auf das vorige zurück. „Zurück auf …" in der
+  Produktions-Verwaltung. Die Zentrale selbst wird nicht über die Freigabe getauscht.
 - `auftraege/` – erstes Addon: alle Aufträge mit aktuellem Status, seitenweise wie im Client
   (FastLaneReader, Anwendungsfall Auftrag), Leserecht AUFT_AUFTRAG_R.
 

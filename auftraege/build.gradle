@@ -1,5 +1,6 @@
 // Addon „Aufträge": die Auftragsliste mit aktuellem Status.
 apply plugin: 'war'
+version = '0.1.1'
 
 dependencies {
     implementation project(':basis')
@@ -9,6 +10,7 @@ dependencies {
 }
 
 processResources {
+    inputs.property('version', project.version)
     filesMatching('addon.properties') { expand(version: project.version) }
 }
 

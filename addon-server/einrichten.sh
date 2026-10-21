@@ -86,7 +86,17 @@ KIESELSTEIN_SERVER=localhost:8080
 PORT_VERSATZ=200
 # Java 21, wie Kieselstein (leer: das JDK 21 aus ~/.kieselstein/jdk)
 ADDON_JDK=
+# Nur in der Test-Stufe: Adresse der Produktions-Zentrale für die Freigabe, z. B. http://erp-addons:8280
+PRODUKTION_URL=
 CONF
+
+# 5. Schlüssel für die Freigabe Test -> Produktion. Nur anlegen, wenn er fehlt.
+#    Test und Produktion brauchen denselben: nach dem Einrichten der Produktion
+#    config/freigabe.schluessel aus dem Test dorthin kopieren.
+if [ ! -f "$ADDONS/config/freigabe.schluessel" ]; then
+  (umask 077; head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$ADDONS/config/freigabe.schluessel")
+  echo "Freigabe-Schlüssel angelegt: $ADDONS/config/freigabe.schluessel"
+fi
 
 cp "$HIER/start.sh" "$HIER/stopp.sh" "$ADDONS/"
 chmod +x "$ADDONS/start.sh" "$ADDONS/stopp.sh"
