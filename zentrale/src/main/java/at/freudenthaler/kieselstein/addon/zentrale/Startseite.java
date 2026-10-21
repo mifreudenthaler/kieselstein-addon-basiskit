@@ -72,23 +72,32 @@ public class Startseite {
         try (Stream<Path> dateien = Files.list(Path.of(ordner))) {
             return dateien.filter(p -> p.toString().endsWith(".war"))
                     .map(p -> Addon.aus(p))
-                    .sorted((a, b) -> a.getName().compareToIgnoreCase(b.getName()))
+                    .filter(a -> !"zentrale".equals(a.getName()))
+                    .sorted((a, b) -> a.getTitel().compareToIgnoreCase(b.getTitel()))
                     .collect(Collectors.toList());
         } catch (IOException e) {
             return List.of();
         }
     }
 
-    /** Ein installiertes Addon, wie es im Deployments-Ordner liegt. */
+    /**
+     * Ein installiertes Addon, wie es im Deployments-Ordner liegt.
+     *
+     * Titel, Beschreibung und Version stehen im Addon selbst, in
+     * WEB-INF/classes/addon.properties – so beschreibt sich jedes Addon, ohne
+     * dass die Zentrale es kennen muss.
+     */
     public static final class Addon {
         private final String name;
         private final String pfad;
         private final String zustand;
+        private final java.util.Properties angaben;
 
-        Addon(String name, String pfad, String zustand) {
+        Addon(String name, String pfad, String zustand, java.util.Properties angaben) {
             this.name = name;
             this.pfad = pfad;
             this.zustand = zustand;
+            this.angaben = angaben;
         }
 
         static Addon aus(Path war) {
@@ -98,10 +107,24 @@ public class Startseite {
                     : Files.exists(war.resolveSibling(datei + ".failed")) ? "Fehler beim Start"
                     : Files.exists(war.resolveSibling(datei + ".undeployed")) ? "abgeschaltet"
                     : "startet";
-            return new Addon(name, "zentrale".equals(name) ? "/" : "/" + name + "/", zustand);
+            java.util.Properties angaben = new java.util.Properties();
+            try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(war.toFile())) {
+                java.util.zip.ZipEntry e = zip.getEntry("WEB-INF/classes/addon.properties");
+                if (e != null) {
+                    try (java.io.Reader r = new java.io.InputStreamReader(zip.getInputStream(e), java.nio.charset.StandardCharsets.UTF_8)) {
+                        angaben.load(r);
+                    }
+                }
+            } catch (IOException e) {
+                // ohne Beschreibung anzeigen
+            }
+            return new Addon(name, "zentrale".equals(name) ? "/" : "/" + name + "/", zustand, angaben);
         }
 
         public String getName() { return name; }
+        public String getTitel() { return angaben.getProperty("titel", name); }
+        public String getBeschreibung() { return angaben.getProperty("beschreibung", ""); }
+        public String getVersion() { return angaben.getProperty("version", "?"); }
         public String getPfad() { return pfad; }
         public String getZustand() { return zustand; }
         public boolean isLaeuft() { return "läuft".equals(zustand); }

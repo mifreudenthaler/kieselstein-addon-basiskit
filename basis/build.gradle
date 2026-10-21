@@ -5,4 +5,5 @@ apply plugin: 'java-library'
 dependencies {
     compileOnly 'javax:javaee-api:8.0.1'
     compileOnly rootProject.kieselsteinApi
+    compileOnly 'org.primefaces:primefaces:15.0.6'
 }

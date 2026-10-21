@@ -1,9 +1,11 @@
 package at.freudenthaler.kieselstein.addon.zentrale;
 
+import java.io.IOException;
 import java.util.Locale;
 
 import javax.enterprise.context.RequestScoped;
 import javax.faces.application.FacesMessage;
+import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -11,7 +13,13 @@ import javax.inject.Named;
 import at.freudenthaler.kieselstein.addon.basis.Kieselstein;
 import at.freudenthaler.kieselstein.addon.basis.Sitzung;
 
-/** Das Anmeldeformular der Zentrale – Kieselstein-Benutzer, Kennwort, Mandant. */
+/**
+ * Anmelden und Abmelden an der Zentrale – für alle Addons zugleich.
+ *
+ * Kommt man aus einem Addon hierher, steht dessen Adresse in „zurueck"; nach
+ * der Anmeldung geht es dorthin zurück. Erlaubt sind nur Adressen auf diesem
+ * Server, damit niemand die Anmeldung als Sprungbrett nach draußen benutzt.
+ */
 @Named
 @RequestScoped
 public class Anmeldung {
@@ -22,27 +30,33 @@ public class Anmeldung {
     private String benutzer;
     private String kennwort;
     private String mandant;
+    private String zurueck;
 
-    public String anmelden() {
+    public String anmelden() throws IOException {
         try {
             sitzung.anmelden(benutzer, kennwort, mandant, new Locale("de", "AT"));
-            return "/index.xhtml?faces-redirect=true";
-        } catch (Sitzung.AnmeldungAbgelehnt e) {
-            melden(e.getMessage());
-        } catch (Kieselstein.KieselsteinNichtErreichbar e) {
-            melden(e.getMessage());
+        } catch (Sitzung.AnmeldungAbgelehnt | Kieselstein.KieselsteinNichtErreichbar e) {
+            FacesContext.getCurrentInstance().addMessage(null,
+                    new FacesMessage(FacesMessage.SEVERITY_ERROR, e.getMessage(), null));
+            return null;
         }
-        return null;
-    }
-
-    public String abmelden() {
-        sitzung.abmelden();
-        FacesContext.getCurrentInstance().getExternalContext().invalidateSession();
+        if (istHier(zurueck)) {
+            FacesContext.getCurrentInstance().getExternalContext().redirect(zurueck);
+            return null;
+        }
         return "/index.xhtml?faces-redirect=true";
     }
 
-    private static void melden(String text) {
-        FacesContext.getCurrentInstance().addMessage(null, new FacesMessage(FacesMessage.SEVERITY_ERROR, text, null));
+    /** Aufgerufen von /abmelden.xhtml – aus jedem Addon über den Rahmen erreichbar. */
+    public void abmelden() throws IOException {
+        sitzung.abmelden();
+        ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
+        ec.invalidateSession();
+        ec.redirect("/");
+    }
+
+    static boolean istHier(String adresse) {
+        return adresse != null && adresse.startsWith("/") && !adresse.startsWith("//") && !adresse.contains("\\");
     }
 
     public String getBenutzer() { return benutzer; }
@@ -51,4 +65,6 @@ public class Anmeldung {
     public void setKennwort(String kennwort) { this.kennwort = kennwort; }
     public String getMandant() { return mandant; }
     public void setMandant(String mandant) { this.mandant = mandant; }
+    public String getZurueck() { return zurueck; }
+    public void setZurueck(String zurueck) { this.zurueck = zurueck; }
 }

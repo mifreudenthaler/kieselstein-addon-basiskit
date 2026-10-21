@@ -1,0 +1,70 @@
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
+                xmlns:f="http://xmlns.jcp.org/jsf/core"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+                xmlns:p="http://primefaces.org/ui"
+                template="/basiskit/rahmen.xhtml">
+    <ui:param name="titel" value="Aufträge"/>
+    <ui:define name="inhalt">
+        <div class="ks-inhalt breit">
+            <ui:fragment rendered="#{not auftragsliste.darfLesen}">
+                <h1 class="ks-h1">Aufträge</h1>
+                <p class="ks-unterzeile">Ihnen fehlt in Kieselstein das Leserecht für Aufträge (AUFT_AUFTRAG_R).</p>
+            </ui:fragment>
+
+            <ui:fragment rendered="#{auftragsliste.darfLesen}">
+                <h:form id="f">
+                    <p:dataTable id="tabelle" value="#{auftragsliste.modell}" var="a" lazy="true"
+                                 paginator="true" rows="50" rowsPerPageTemplate="25,50,100"
+                                 paginatorPosition="bottom"
+                                 currentPageReportTemplate="{startRecord}–{endRecord} von {totalRecords} Aufträgen"
+                                 paginatorTemplate="{CurrentPageReport} {FirstPageLink} {PreviousPageLink} {PageLinks} {NextPageLink} {LastPageLink} {RowsPerPageDropdown}"
+                                 size="small" stripedRows="true" emptyMessage="Keine Aufträge">
+                        <f:facet name="header">
+                            <div style="display:flex;align-items:baseline;gap:1rem">
+                                <span style="font-size:1.25rem;font-weight:600">Aufträge</span>
+                                <span style="color:var(--ks-grau);font-weight:400">wie im Kieselstein-Client, mit aktuellem Status</span>
+                            </div>
+                        </f:facet>
+
+                        <p:column headerText="AB Nr." style="width:8rem">
+                            <span style="#{a.zeilenStil}">#{a.nummer}</span>
+                        </p:column>
+                        <p:column headerText="Kunde">
+                            <span style="#{a.zeilenStil}">#{a.kunde}</span>
+                            <div style="color:var(--ks-grau);font-size:.8rem">#{a.ort}</div>
+                        </p:column>
+                        <p:column headerText="Projekt / Bestellnummer">
+                            #{a.projekt}
+                        </p:column>
+                        <p:column headerText="Status" style="width:10rem">
+                            <span class="#{a.statusKlasse}">#{a.statusText}</span>
+                            <h:outputText rendered="#{a.versendet ne null}" style="display:block;color:var(--ks-grau);font-size:.75rem;margin-top:.15rem"
+                                          value="versendet #{a.versandArt}"/>
+                        </p:column>
+                        <p:column headerText="Termin" style="width:7rem" styleClass="ks-datum">
+                            <h:outputText value="#{a.termin}" styleClass="#{a.ueberfaellig ? 'ks-ueberfaellig' : ''}">
+                                <f:convertDateTime pattern="dd.MM.yyyy" timeZone="Europe/Vienna"/>
+                            </h:outputText>
+                        </p:column>
+                        <p:column headerText="Datum" style="width:7rem" styleClass="ks-datum">
+                            <h:outputText value="#{a.datum}">
+                                <f:convertDateTime pattern="dd.MM.yyyy" timeZone="Europe/Vienna"/>
+                            </h:outputText>
+                        </p:column>
+                        <p:column headerText="Vertr." style="width:4.5rem">#{a.vertreter}</p:column>
+                        <p:column headerText="Wert" style="width:9rem" styleClass="ks-zahl">
+                            <h:outputText value="#{a.wert}">
+                                <f:convertNumber minFractionDigits="2" maxFractionDigits="2" locale="de_AT"/>
+                            </h:outputText>
+                            <span style="color:var(--ks-grau)"> #{a.waehrung}</span>
+                        </p:column>
+                        <p:column headerText="" style="width:7rem">
+                            <h:outputText rendered="#{a.merkmal ne null}" value="#{a.merkmal}" style="font-size:.75rem;#{a.zeilenStil}"/>
+                        </p:column>
+                    </p:dataTable>
+                </h:form>
+            </ui:fragment>
+        </div>
+    </ui:define>
+</ui:composition>

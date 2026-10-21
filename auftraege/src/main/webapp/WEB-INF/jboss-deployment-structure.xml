@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Die Kieselstein-Schnittstellen kommen als Modul vom Addon-Server,
+     der Weg zu Kieselstein über den WildFly-Naming- und EJB-Client. -->
+<jboss-deployment-structure>
+    <deployment>
+        <dependencies>
+            <module name="kieselstein.client"/>
+            <module name="org.wildfly.naming-client"/>
+            <module name="org.jboss.ejb-client"/>
+        </dependencies>
+    </deployment>
+</jboss-deployment-structure>

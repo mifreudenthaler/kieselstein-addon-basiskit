@@ -17,8 +17,19 @@ Der Vorschlag dazu steht in Nexus (Kieselstein / Entwicklung, „Kieselstein-Add
 
 - `basis/` – die Basisschicht: Weg zu Kieselstein (`Kieselstein.fassade`, `Kieselstein.rufe`),
   Anmeldung und Rechte (`Sitzung`, Rechte über TheJudgeFac am Server).
+- `basis/` bringt auch den gemeinsamen Rahmen im Kieselstein-Design mit
+  (`/basiskit/rahmen.xhtml`, Farben aus dem Kieselstein-Logo) und `Liste` für Kieselstein-Listen
+  über den FastLaneReader – dieselben Spalten, Status und Einschränkungen wie im Client.
 - `zentrale/` – die Addon-Zentrale (PrimeFaces): Anmeldung mit Kieselstein-Benutzer, Startseite
-  mit den installierten Addons, Stufe Test/Produktion, Rechteprobe.
+  mit den installierten Addons (Titel/Beschreibung aus `WEB-INF/classes/addon.properties` des Addons),
+  Stufe Test/Produktion, Rechteprobe.
+- `auftraege/` – erstes Addon: alle Aufträge mit aktuellem Status, seitenweise wie im Client
+  (FastLaneReader, Anwendungsfall Auftrag), Leserecht AUFT_AUFTRAG_R.
+
+Anmeldung einmal für alle: Die Zentrale meldet bei Kieselstein an und legt den Sitzungsschlüssel
+in das Cookie `KS_ADDON_SITZUNG` (Pfad `/`). Jedes Addon holt damit dieselbe Anmeldung über
+`TheClientFac.theClientFindByUserLoggedIn` ab, wie die REST-Schnittstelle. Abmelden macht den
+Schlüssel bei Kieselstein ungültig, für alle Addons zugleich.
 
   ```
   ./gradlew :zentrale:war      # JAVA_HOME auf ein JDK 21
