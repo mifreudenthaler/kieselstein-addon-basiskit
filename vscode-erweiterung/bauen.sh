@@ -19,6 +19,6 @@ cp -r basis/build.gradle basis/src "$HIER/projekt/basis/"
 cp -r vorlage gradlew gradle "$HIER/projekt/"
 mkdir -p "$HIER/paket"
 find "$HIER/paket" -name 'kieselstein-basiskit-*.tar.gz' -delete
-cp build/paket/kieselstein-basiskit-*.tar.gz "$HIER/paket/"
+cp "build/paket/kieselstein-basiskit-$VERSION.tar.gz" "$HIER/paket/"
 cd "$HIER"
 npx -y @vscode/vsce package --skip-license
