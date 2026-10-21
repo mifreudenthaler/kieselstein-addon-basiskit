@@ -357,7 +357,8 @@ public class Verwaltung implements Serializable {
         public String getProduktionVersion() { return prod == null ? null : prod[0]; }
         public boolean isInProduktion() { return prod != null; }
         public boolean isGleichWieProduktion() { return prod != null && prod.length > 2 && prod[2].equals(sha); }
-        public boolean isAusrollbar() { return ausrollbar && isLaeuft() && !isZentrale() && !isGleichWieProduktion(); }
+        public boolean isAusrollbar() { return ausrollbar && isLaeuft() && !addon.isLive() && !isZentrale() && !isGleichWieProduktion(); }
+        public boolean isLive() { return addon.isLive(); }
         public String getVergleich() {
             if (!ausrollbar) {
                 return null;

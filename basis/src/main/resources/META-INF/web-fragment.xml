@@ -8,6 +8,14 @@
     <listener>
         <listener-class>at.freudenthaler.kieselstein.addon.basis.Basiskit</listener-class>
     </listener>
+    <servlet>
+        <servlet-name>basiskit-live</servlet-name>
+        <servlet-class>at.freudenthaler.kieselstein.addon.basis.LiveStand</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>basiskit-live</servlet-name>
+        <url-pattern>/basiskit/live</url-pattern>
+    </servlet-mapping>
     <filter>
         <filter-name>basiskit-messung</filter-name>
         <filter-class>at.freudenthaler.kieselstein.addon.basis.Messfilter</filter-class>

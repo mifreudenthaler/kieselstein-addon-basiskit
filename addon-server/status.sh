@@ -13,6 +13,7 @@ for w in "$ADDONS"/deployments/*.war; do
   n=$(basename "$w" .war)
   z=startet
   [ -e "$w.deployed" ] && z=laeuft
+  [ -d "$w" ] && [ -e "$w.deployed" ] && z=live
   [ -e "$w.failed" ] && z=fehler
   { [ -e "$w.skipdeploy" ] || [ -e "$w.undeployed" ]; } && z=abgeschaltet
   echo "addon=$n:$z"

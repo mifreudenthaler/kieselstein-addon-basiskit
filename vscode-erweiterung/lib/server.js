@@ -112,7 +112,7 @@ async function stand(server) {
     const v = zeile.slice(i + 1).trim();
     if (k === 'addon') {
       const [name, zustand] = v.split(':');
-      addons.push({ name, zustand: zustand === 'laeuft' ? 'läuft' : zustand });
+      addons.push({ name, zustand: zustand === 'laeuft' ? 'läuft' : zustand === 'live' ? 'läuft (live)' : zustand });
     } else werte[k] = v;
   }
   return {
@@ -188,7 +188,7 @@ async function einrichten(server, alle, { paketDatei, schluessel, melde = () => 
   melde(`${STUFEN_NAME[server.stufe]}: Addon-Server starten …`);
   const a = addonsOrdner(server);
   await pflicht(server, `bash ${q(a + '/stopp.sh')} >/dev/null 2>&1; bash ${q(a + '/start.sh')} --hintergrund`);
-  await warten(server, (st) => st.laeuft && st.addons.some((x) => x.name === 'zentrale' && (x.zustand === 'läuft' || x.zustand === 'fehler')), 180);
+  await warten(server, (st) => st.laeuft && st.addons.some((x) => x.name === 'zentrale' && (x.zustand.startsWith('läuft') || x.zustand === 'fehler')), 180);
   const st = await stand(server);
   const z = st.addons.find((x) => x.name === 'zentrale');
   if (!z || z.zustand !== 'läuft') throw new Error(`${STUFEN_NAME[server.stufe]}: Zentrale startet nicht – Protokoll unter ${a}/logs`);
@@ -230,6 +230,9 @@ async function inErsteStufeLaden(war, alle, { sekunden = 120, melde = () => {} }
   }
   const name = path.basename(war);
   const d = `${addonsOrdner(ziel)}/deployments`;
+  if ((await ausfuehren(ziel, `test -d ${q(d + '/' + name)}`)).code === 0) {
+    throw new Error(`${name.replace(/\.war$/, '')} läuft im Live-Modus – Änderungen werden ohnehin übernommen. Zum normalen Laden den Live-Modus beenden.`);
+  }
   melde(`${name} → ${STUFEN_NAME[ziel.stufe]}`);
   await hochladen(ziel, war, `${d}/.${name}.neu`);
   await pflicht(ziel, `cd ${q(d)} && rm -f ${q(name)}.deployed ${q(name)}.failed ${q(name)}.skipdeploy ${q(name)}.undeployed `

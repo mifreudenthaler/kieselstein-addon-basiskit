@@ -40,6 +40,8 @@
       { "command": "kieselsteinAddon.ansichtNeuLaden", "title": "Neu laden", "category": "Kieselstein", "icon": "$(refresh)" },
       { "command": "kieselsteinAddon.anlegen", "title": "Neues Addon anlegen", "category": "Kieselstein", "icon": "$(new-file)" },
       { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und laden (erste Stufe)", "category": "Kieselstein", "icon": "$(cloud-upload)" },
+      { "command": "kieselsteinAddon.liveStarten", "title": "Live-Modus starten", "category": "Kieselstein", "icon": "$(flame)" },
+      { "command": "kieselsteinAddon.liveBeenden", "title": "Live-Modus beenden", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.testen", "title": "Tests des Addons ausführen", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.oeffnen", "title": "Addon im Browser öffnen", "category": "Kieselstein" },
       { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" },
@@ -49,6 +51,7 @@
       "view/title": [
         { "command": "kieselsteinAddon.serverEintragen", "when": "view == kieselsteinAddon.server", "group": "navigation@1" },
         { "command": "kieselsteinAddon.anlegen", "when": "view == kieselsteinAddon.server", "group": "navigation@2" },
+        { "command": "kieselsteinAddon.liveStarten", "when": "view == kieselsteinAddon.server", "group": "navigation@2" },
         { "command": "kieselsteinAddon.ansichtNeuLaden", "when": "view == kieselsteinAddon.server", "group": "navigation@3" }
       ],
       "view/item/context": [
@@ -63,7 +66,8 @@
         { "command": "kieselsteinAddon.serverEntfernen", "when": "view == kieselsteinAddon.server && viewItem =~ /^server-/", "group": "9_liste@2" }
       ],
       "editor/title": [
-        { "command": "kieselsteinAddon.inDenTest", "group": "navigation", "when": "resourceExtname == .xhtml || resourceExtname == .java" }
+        { "command": "kieselsteinAddon.liveStarten", "group": "navigation@1", "when": "resourceExtname == .xhtml || resourceExtname == .java" },
+        { "command": "kieselsteinAddon.inDenTest", "group": "navigation@2", "when": "resourceExtname == .xhtml || resourceExtname == .java" }
       ]
     },
     "configuration": {

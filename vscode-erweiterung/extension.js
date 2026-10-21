@@ -17,6 +17,7 @@ const path = require('node:path');
 const w = require('./lib/werkzeug');
 const s = require('./lib/server');
 const f = require('./lib/formular');
+const { Live } = require('./lib/live');
 
 let ausgabe;
 let leiste;
@@ -383,6 +384,93 @@ async function fassadeNachschlagen() {
   }
 }
 
+// --- Live-Modus --------------------------------------------------------------
+
+let live = null;          // der laufende Live-Modus (höchstens einer)
+let liveBeobachter = null;
+let liveLeiste;
+const liveOffen = new Set();
+let liveTakt = null;
+
+function liveAnzeigen() {
+  if (live) {
+    liveLeiste.text = `$(flame) Live: ${live.addon}`;
+    liveLeiste.tooltip = 'Live-Modus: Änderungen erscheinen von selbst im Browser. Klicken zum Beenden.';
+    liveLeiste.command = 'kieselsteinAddon.liveBeenden';
+    liveLeiste.show();
+  } else {
+    liveLeiste.hide();
+  }
+}
+
+/** Live-Modus für ein Addon starten – auf der ersten Stufe, die diese Maschine sein muss. */
+async function liveStarten(addonVorgabe) {
+  try {
+    const addon = addonVorgabe || await addonWaehlen('Welches Addon live entwickeln?');
+    if (!addon) return null;
+    if (live && live.addon === addon.name) return live;
+    if (live) await liveBeenden();
+    const erste = s.ersteStufe(serverListe());
+    if (!erste) throw new Error('Kein Test- oder Entwicklungsserver eingetragen.');
+    const r = wurzel();
+    const l = new Live({ wurzel: r, addon: addon.name, server: erste, optionen: optionen(), melde: (m) => ausgabe.appendLine(m) });
+    await mitFortschritt(`Live-Modus ${addon.titel}`, () => l.starten());
+    live = l;
+    // Beobachtet die Dateien selbst – auch Änderungen, die ein Agent schreibt, nicht nur gespeicherte Editoren.
+    liveBeobachter = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(r, `{${addon.name},basis}/**/*`));
+    const merken = (uri) => {
+      if (!live || /[\\/]build[\\/]|[\\/]\.gradle[\\/]/.test(uri.fsPath)) return;
+      liveOffen.add(uri.fsPath);
+      clearTimeout(liveTakt);
+      liveTakt = setTimeout(() => {
+        const dateien = [...liveOffen];
+        liveOffen.clear();
+        live.uebernehmen(dateien).catch((e) => vscode.window.showErrorMessage(`Live: ${e.message.split('\n')[0]}`));
+      }, 250);
+    };
+    liveBeobachter.onDidChange(merken);
+    liveBeobachter.onDidCreate(merken);
+    liveBeobachter.onDidDelete(merken);
+    liveAnzeigen();
+    ansicht.neuLaden();
+    vscode.window.showInformationMessage(`Live-Modus ${addon.titel}: Änderungen erscheinen von selbst.`, 'Öffnen').then((auf) => {
+      if (auf) vscode.env.openExternal(vscode.Uri.parse(`${erste.adresse}/${addon.name}/`));
+    });
+    return live;
+  } catch (e) {
+    fehler(e);
+    return null;
+  }
+}
+
+async function liveBeenden() {
+  if (!live) return;
+  const l = live;
+  live = null;
+  liveBeobachter?.dispose();
+  liveBeobachter = null;
+  liveAnzeigen();
+  await mitFortschritt(`Live-Modus ${l.addon} beenden`, () => l.beenden()).catch(fehler);
+  ansicht.neuLaden();
+}
+
+/** Nach einem Neustart des Editors: noch ausgepackte Addons finden und anbieten. */
+async function liveWiederfinden() {
+  const erste = s.ersteStufe(serverListe());
+  if (!erste || erste.ssh) return;
+  const laufend = Live.laufende(erste);
+  if (!laufend.length || live) return;
+  const r = wurzel(false);
+  const addon = r && w.addons(r).find((a) => a.name === laufend[0]);
+  if (!addon) return;
+  const wahl = await vscode.window.showInformationMessage(`${addon.titel} läuft noch im Live-Modus.`, 'Fortsetzen', 'Beenden');
+  if (wahl === 'Fortsetzen') await liveStarten(addon);
+  if (wahl === 'Beenden') {
+    const l = new Live({ wurzel: r, addon: addon.name, server: erste, optionen: optionen(), melde: (m) => ausgabe.appendLine(m) });
+    await mitFortschritt(`Live-Modus ${addon.titel} beenden`, () => l.beenden()).catch(fehler);
+  }
+}
+
 // --- Updates -----------------------------------------------------------------
 
 /** owner/repo aus dem repository-Eintrag der Erweiterung. */
@@ -473,6 +561,9 @@ function activate(k) {
   leiste = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   leiste.show();
   ansicht = new Serveransicht();
+  liveLeiste = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 49);
+  liveLeiste.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+  k.subscriptions.push(liveLeiste, { dispose: () => liveBeobachter?.dispose() });
   k.subscriptions.push(vscode.window.registerTreeDataProvider('kieselsteinAddon.server', ansicht));
   aktualisieren().catch(() => {});
   const takt = setInterval(() => aktualisieren().catch(() => {}), 15000);
@@ -493,15 +584,18 @@ function activate(k) {
     'kieselsteinAddon.oeffnen': oeffnen,
     'kieselsteinAddon.fassade': fassadeNachschlagen,
     'kieselsteinAddon.updatePruefen': () => updatePruefen(true),
+    'kieselsteinAddon.liveStarten': liveStarten,
+    'kieselsteinAddon.liveBeenden': liveBeenden,
   };
   for (const [id, f] of Object.entries(befehle)) k.subscriptions.push(vscode.commands.registerCommand(id, f));
   k.subscriptions.push(ausgabe, leiste, { dispose: () => clearInterval(takt) },
     vscode.workspace.onDidChangeConfiguration((e) => { if (e.affectsConfiguration('kieselsteinAddon')) { ansicht.neuLaden(); aktualisieren(); } }));
 
   setTimeout(() => updatePruefen(false), 10000);
+  setTimeout(() => liveWiederfinden().catch(() => {}), 3000);
 
   // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
-  return { server: s, werkzeug: w, formular: f, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
+  return { server: s, werkzeug: w, formular: f, live: () => live, liveStarten, liveBeenden, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
 }
 
 function deactivate() {}

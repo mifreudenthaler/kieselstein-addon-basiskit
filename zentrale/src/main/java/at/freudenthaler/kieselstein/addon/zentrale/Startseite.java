@@ -103,12 +103,15 @@ public class Startseite {
         static Addon aus(Path war) {
             String datei = war.getFileName().toString();
             String name = datei.substring(0, datei.length() - 4);
-            String zustand = Files.exists(war.resolveSibling(datei + ".deployed")) ? "läuft"
+            boolean live = Files.isDirectory(war);
+            String zustand = Files.exists(war.resolveSibling(datei + ".failed")) ? "Fehler beim Start"
+                    : live && Files.exists(war.resolveSibling(datei + ".deployed")) ? "läuft (Live-Modus)"
+                    : Files.exists(war.resolveSibling(datei + ".deployed")) ? "läuft"
                     : Files.exists(war.resolveSibling(datei + ".failed")) ? "Fehler beim Start"
                     : Files.exists(war.resolveSibling(datei + ".undeployed")) ? "abgeschaltet"
                     : "startet";
-            java.util.Properties angaben = new java.util.Properties();
-            try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(war.toFile())) {
+            java.util.Properties angaben = AddonOrdner.angaben(war);
+            if (angaben.isEmpty()) try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(war.toFile())) {
                 java.util.zip.ZipEntry e = zip.getEntry("WEB-INF/classes/addon.properties");
                 if (e != null) {
                     try (java.io.Reader r = new java.io.InputStreamReader(zip.getInputStream(e), java.nio.charset.StandardCharsets.UTF_8)) {
@@ -127,6 +130,7 @@ public class Startseite {
         public String getVersion() { return angaben.getProperty("version", "?"); }
         public String getPfad() { return pfad; }
         public String getZustand() { return zustand; }
-        public boolean isLaeuft() { return "läuft".equals(zustand); }
+        public boolean isLaeuft() { return zustand.startsWith("läuft"); }
+        public boolean isLive() { return zustand.endsWith("(Live-Modus)"); }
     }
 }

@@ -155,5 +155,5 @@ function fassadeZeigen(clientLib, klasse, jdkPfad) {
 }
 
 module.exports = {
-  addons, addonZuDatei, projektWurzel, addonAnlegen, bauen, testen, fassaden, fassadeZeigen, leseProperties,
+  addons, addonZuDatei, projektWurzel, addonAnlegen, bauen, testen, gradle, fassaden, fassadeZeigen, leseProperties,
 };

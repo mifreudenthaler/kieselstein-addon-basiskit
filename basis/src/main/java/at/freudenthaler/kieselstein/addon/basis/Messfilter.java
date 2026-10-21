@@ -38,8 +38,8 @@ public class Messfilter implements Filter {
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain kette) throws IOException, ServletException {
         HttpServletRequest anfrage = (HttpServletRequest) req;
         String pfad = anfrage.getRequestURI();
-        // Bilder, Stile und Skripte zählen nicht – sie sagen nichts über das Addon.
-        if (pfad.contains("/javax.faces.resource/")) {
+        // Bilder, Stile, Skripte und die Abfrage des Live-Modus zählen nicht – sie sagen nichts über das Addon.
+        if (pfad.contains("/javax.faces.resource/") || pfad.endsWith("/basiskit/live")) {
             kette.doFilter(req, res);
             return;
         }

@@ -133,3 +133,5 @@ html body .ui-messages .ui-messages-info .ui-messages-info-icon, html body .ui-m
 .ks-einstellung:last-child { border-bottom: none; }
 .ks-einstellung-titel { font-weight: 600; display: block; margin-bottom: .15rem; }
 .ks-einstellung-feld { justify-self: end; }
+
+.ks-kopf .ks-stufe.ks-live { background: #fff; color: var(--ks-petrol); }

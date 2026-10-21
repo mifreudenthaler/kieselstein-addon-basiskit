@@ -134,6 +134,9 @@ final class Freigabe {
             throw new IllegalStateException("Die nächste Stufe ist nicht eingerichtet (NAECHSTE_STUFE_URL, freigabe.schluessel).");
         }
         Path war = AddonOrdner.war(name);
+        if (Files.isDirectory(war)) {
+            throw new IllegalStateException(name + " läuft im Live-Modus – erst im Editor beenden, dann ausrollen.");
+        }
         if (!Files.exists(AddonOrdner.marke(war, ".deployed"))) {
             throw new IllegalStateException(name + " läuft hier nicht – ausgerollt wird nur, was hier läuft.");
         }

@@ -30,6 +30,19 @@ public class Rahmen {
         return verwalten;
     }
 
+    /** Live-Modus: Die Seite lädt sich neu, sobald die Erweiterung eine Änderung übernommen hat. */
+    public boolean isLive() {
+        return LiveStand.aktiv();
+    }
+
+    public String getLiveStand() {
+        try {
+            return java.nio.file.Files.readString(LiveStand.datei(Protokoll.addon())).trim();
+        } catch (java.io.IOException e) {
+            return "";
+        }
+    }
+
     public boolean isTest() {
         return !"produktion".equalsIgnoreCase(Kieselstein.stufe());
     }

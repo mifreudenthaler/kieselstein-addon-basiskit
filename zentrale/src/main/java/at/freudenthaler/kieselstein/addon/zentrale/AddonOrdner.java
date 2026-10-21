@@ -136,6 +136,17 @@ final class AddonOrdner {
         if (!Files.exists(war)) {
             return p;
         }
+        if (Files.isDirectory(war)) { // Live-Modus: ausgepackt
+            Path d = war.resolve("WEB-INF/classes/addon.properties");
+            if (Files.exists(d)) {
+                try (Reader r = Files.newBufferedReader(d, StandardCharsets.UTF_8)) {
+                    p.load(r);
+                } catch (IOException e) {
+                    // ohne Angaben
+                }
+            }
+            return p;
+        }
         try (ZipFile zip = new ZipFile(war.toFile())) {
             ZipEntry e = zip.getEntry("WEB-INF/classes/addon.properties");
             if (e != null) {
@@ -158,7 +169,14 @@ final class AddonOrdner {
                 at.freudenthaler.kieselstein.addon.basis.Einstellung.lesen(new java.io.StringReader(
                         at.freudenthaler.kieselstein.addon.basis.Einstellungen.ALLGEMEIN)));
         Path war = war(name);
-        if (Files.exists(war)) {
+        if (Files.isDirectory(war)) {
+            Path d = war.resolve("WEB-INF/classes/einstellungen.properties");
+            if (Files.exists(d)) {
+                try (Reader r = Files.newBufferedReader(d, StandardCharsets.UTF_8)) {
+                    liste.addAll(0, at.freudenthaler.kieselstein.addon.basis.Einstellung.lesen(r));
+                }
+            }
+        } else if (Files.exists(war)) {
             try (ZipFile zip = new ZipFile(war.toFile())) {
                 ZipEntry e = zip.getEntry("WEB-INF/classes/einstellungen.properties");
                 if (e != null) {
@@ -174,6 +192,9 @@ final class AddonOrdner {
     }
 
     static String sha256(Path datei) throws IOException {
+        if (Files.isDirectory(datei)) {
+            return "live"; // ausgepackt im Live-Modus – kein Paket, keine Prüfsumme
+        }
         try (InputStream in = Files.newInputStream(datei)) {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] puffer = new byte[65536];

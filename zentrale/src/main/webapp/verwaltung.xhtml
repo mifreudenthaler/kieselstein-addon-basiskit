@@ -66,6 +66,8 @@
                                             <p:commandButton value="In #{z.naechste} ausrollen …" rendered="#{z.ausrollbar}"
                                                              action="#{verwaltung.ausrollenVorbereiten(z.name)}" update=":f:ausrollenDlg"
                                                              oncomplete="PF('ausrollenDlg').show()" styleClass="ks-haupt"/>
+                                            <h:outputText rendered="#{z.live}" styleClass="ks-klein" style="align-self:center"
+                                                          value="Live-Modus aus dem Editor – zum Ausrollen dort beenden"/>
                                             <p:commandButton value="Neu starten" action="#{verwaltung.neuStarten(z.name)}" update="@form"
                                                              styleClass="ui-button-outlined">
                                                 <p:confirm header="Neu starten" message="#{z.titel} neu starten? Wer es gerade benutzt, muss die Seite neu laden."/>

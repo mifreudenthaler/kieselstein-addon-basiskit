@@ -26,6 +26,7 @@
         <a href="/"><h:graphicImage library="basiskit" name="kieselstein-logo.png" styleClass="ks-logo" alt="Kieselstein ERP"/></a>
         <span class="ks-titel">#{titel}</span>
         <h:outputText styleClass="ks-stufe" value="#{rahmen.stufeText}" rendered="#{rahmen.test}"/>
+        <h:outputText styleClass="ks-stufe ks-live" value="Live" rendered="#{rahmen.live}" title="Live-Modus: Änderungen aus dem Editor erscheinen von selbst"/>
         <ui:fragment rendered="#{sitzung.angemeldet}">
             <div class="ks-rechts">
                 <a href="/">Addons</a>
@@ -46,6 +47,26 @@
             <a class="ui-button ui-widget ui-state-default ui-corner-all" style="display:block;text-align:center;padding:.6rem;color:#fff;text-decoration:none"
                href="/?zurueck=#{rahmen.hier}">Zur Anmeldung</a>
         </div>
+    </ui:fragment>
+    <ui:fragment rendered="#{rahmen.live}">
+        <!-- Live-Modus: neu laden, sobald sich der Stand ändert. Während eines Neustarts kurz ohne Antwort – dann weiter fragen. -->
+        <script>
+            (function () {
+                var stand = '#{rahmen.liveStand}';
+                var adresse = '#{request.contextPath}/basiskit/live';
+                function fragen() {
+                    fetch(adresse, { cache: 'no-store' }).then(function (r) {
+                        if (r.status === 404) { return null; }
+                        return r.ok ? r.text() : '';
+                    }).then(function (t) {
+                        if (t === null) { return; }
+                        if (t &amp;&amp; t !== stand) { location.reload(); return; }
+                        setTimeout(fragen, 1000);
+                    }).catch(function () { setTimeout(fragen, 1000); });
+                }
+                setTimeout(fragen, 1000);
+            })();
+        </script>
     </ui:fragment>
 </h:body>
 </html>
