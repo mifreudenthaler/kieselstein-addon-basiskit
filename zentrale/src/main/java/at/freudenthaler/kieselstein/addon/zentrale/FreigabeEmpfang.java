@@ -13,10 +13,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 /**
- * Die Tür der Produktions-Zentrale für freigegebene Pakete.
+ * Die Tür einer Zentrale für Pakete der vorigen Stufe (Entwicklung → Test, Test → Produktion).
  *
- * Nimmt nur an, wenn dieser Addon-Server die Stufe „produktion" hat, die
- * Signatur der Test-Zentrale stimmt, die Übergabe frisch ist und die
+ * Nimmt nur an, wenn dieser Addon-Server nicht die Entwicklung ist, die
+ * Signatur der vorigen Zentrale stimmt, die Übergabe frisch ist und die
  * Prüfsumme zum Paket passt. Dann: laufendes Paket ins Archiv, neues
  * einsetzen, auf den Start warten. Scheitert der Start, kommt das vorige
  * Paket von selbst zurück.
@@ -39,7 +39,7 @@ public class FreigabeEmpfang extends HttpServlet {
         if (!zulassen(req, res, "stand", req.getHeader("X-Zeit"))) {
             return;
         }
-        StringBuilder sb = new StringBuilder();
+        StringBuilder sb = new StringBuilder("#stufe\t" + Freigabe.stufe() + "\n");
         for (Startseite.Addon a : AddonOrdner.alle()) {
             sb.append(a.getName()).append('\t').append(a.getVersion()).append('\t').append(a.getZustand())
                     .append('\t').append(AddonOrdner.sha256(AddonOrdner.war(a.getName()))).append('\n');
@@ -87,10 +87,10 @@ public class FreigabeEmpfang extends HttpServlet {
             }
             Path vorher = AddonOrdner.archivieren(name);
             AddonOrdner.einsetzen(name, eingang);
-            AddonOrdner.verlauf(von, "aus dem Test übernommen, wird gestartet", name, version);
+            AddonOrdner.verlauf(von, "von der vorigen Stufe übernommen, wird gestartet", name, version);
             if (AddonOrdner.wartenBisGestartet(name, 120)) {
                 AddonOrdner.verlauf(von, "ausgerollt – läuft", name, version);
-                antworten(res, 200, "ok\t" + name + " " + version + " läuft in Produktion");
+                antworten(res, 200, "ok\t" + name + " " + version + " läuft in " + Freigabe.stufenName(Freigabe.stufe()));
                 return;
             }
             if (vorher != null) {
@@ -98,12 +98,12 @@ public class FreigabeEmpfang extends HttpServlet {
                 boolean zurueck = AddonOrdner.wartenBisGestartet(name, 120);
                 AddonOrdner.verlauf(von, zurueck ? "Start gescheitert – vorige Version läuft wieder" : "Start gescheitert – Rückfall auch gescheitert",
                         name, AddonOrdner.version(vorher));
-                antworten(res, 409, "Start in Produktion gescheitert – " + (zurueck
+                antworten(res, 409, "Start in " + Freigabe.stufenName(Freigabe.stufe()) + " gescheitert – " + (zurueck
                         ? "die vorige Version " + AddonOrdner.version(vorher) + " läuft wieder"
                         : "auch die vorige Version startet nicht, bitte nachsehen"));
             } else {
                 AddonOrdner.verlauf(von, "Start gescheitert", name, version);
-                antworten(res, 409, "Start in Produktion gescheitert (es gab keine vorige Version)");
+                antworten(res, 409, "Start in " + Freigabe.stufenName(Freigabe.stufe()) + " gescheitert (es gab keine vorige Version)");
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -114,8 +114,8 @@ public class FreigabeEmpfang extends HttpServlet {
     }
 
     private static boolean zulassen(HttpServletRequest req, HttpServletResponse res, String... teile) throws IOException {
-        if (Freigabe.istTest()) {
-            antworten(res, 403, "Dieser Addon-Server ist ein Test – Freigaben nimmt nur die Produktion an.");
+        if (!Freigabe.kannEmpfangen()) {
+            antworten(res, 403, "Dieser Addon-Server ist die Entwicklung – er nimmt keine ausgerollten Pakete an.");
             return false;
         }
         String zeit = teile[teile.length - 1];

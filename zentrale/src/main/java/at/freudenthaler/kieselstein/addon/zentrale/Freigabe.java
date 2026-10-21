@@ -39,13 +39,38 @@ final class Freigabe {
     private Freigabe() {
     }
 
-    static boolean istTest() {
-        return !"produktion".equalsIgnoreCase(Kieselstein.stufe());
+    /** Stufen der Kette, in dieser Reihenfolge. Entwicklung ist zusätzlich, Standard sind Test und Produktion. */
+    static String stufe() {
+        String s = Kieselstein.stufe().toLowerCase();
+        return s.equals("entwicklung") || s.equals("produktion") ? s : "test";
     }
 
-    /** Die Adresse der Produktions-Zentrale, z. B. http://erp-addons:8280 (nur in der Test-Stufe gesetzt). */
+    static String stufenName(String s) {
+        switch (s == null ? "" : s.toLowerCase()) {
+            case "entwicklung": return "Entwicklung";
+            case "produktion": return "Produktion";
+            default: return "Test";
+        }
+    }
+
+    /** Darf dieser Addon-Server an eine nächste Stufe ausrollen? (nicht die Produktion) */
+    static boolean kannSenden() {
+        return !"produktion".equals(stufe());
+    }
+
+    /** Nimmt dieser Addon-Server Pakete der vorigen Stufe an? (nicht die Entwicklung) */
+    static boolean kannEmpfangen() {
+        return !"entwicklung".equals(stufe());
+    }
+
+    static boolean istTest() {
+        return kannSenden();
+    }
+
+    /** Die Adresse der Zentrale der nächsten Stufe, z. B. http://erp-addons:8280. */
     static String produktion() {
-        String u = System.getProperty("kieselstein.addons.produktion", "").trim();
+        String u = System.getProperty("kieselstein.addons.naechste",
+                System.getProperty("kieselstein.addons.produktion", "")).trim();
         return u.endsWith("/") ? u.substring(0, u.length() - 1) : u;
     }
 
@@ -103,14 +128,14 @@ final class Freigabe {
     /** Das laufende Test-Paket an die Produktion übergeben. */
     static Ergebnis senden(String name, String wer) throws IOException, InterruptedException {
         if (!istTest()) {
-            throw new IllegalStateException("Freigegeben wird aus der Test-Stufe.");
+            throw new IllegalStateException("Die Produktion ist die letzte Stufe – von hier wird nichts weiter ausgerollt.");
         }
         if (produktion().isEmpty() || !eingerichtet()) {
-            throw new IllegalStateException("Die Verbindung zur Produktion ist nicht eingerichtet (PRODUKTION_URL, freigabe.schluessel).");
+            throw new IllegalStateException("Die nächste Stufe ist nicht eingerichtet (NAECHSTE_STUFE_URL, freigabe.schluessel).");
         }
         Path war = AddonOrdner.war(name);
         if (!Files.exists(AddonOrdner.marke(war, ".deployed"))) {
-            throw new IllegalStateException(name + " läuft im Test nicht – freigegeben wird nur, was im Test läuft.");
+            throw new IllegalStateException(name + " läuft hier nicht – ausgerollt wird nur, was hier läuft.");
         }
         String version = AddonOrdner.version(war);
         String sha = AddonOrdner.sha256(war);
@@ -128,7 +153,7 @@ final class Freigabe {
                 .build();
         HttpResponse<String> antwort = client().send(anfrage, HttpResponse.BodyHandlers.ofString());
         boolean ok = antwort.statusCode() == 200;
-        AddonOrdner.verlauf(wer, ok ? "in Produktion ausgerollt" : "Ausrollen gescheitert: " + antwort.body().replace('\t', ' '), name, version);
+        AddonOrdner.verlauf(wer, ok ? "in die nächste Stufe ausgerollt" : "Ausrollen gescheitert: " + antwort.body().replace('\t', ' '), name, version);
         return new Ergebnis(ok, antwort.body());
     }
 
@@ -149,6 +174,10 @@ final class Freigabe {
             if (antwort.statusCode() == 200) {
                 for (String zeile : antwort.body().split("\n")) {
                     String[] t = zeile.split("\t");
+                    if (t.length >= 2 && "#stufe".equals(t[0])) {
+                        stand.put("#stufe", new String[] { t[1] });
+                        continue;
+                    }
                     if (t.length >= 4) {
                         stand.put(t[0], new String[] { t[1], t[2], t[3] });
                     }

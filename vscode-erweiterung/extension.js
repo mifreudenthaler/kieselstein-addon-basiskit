@@ -2,56 +2,361 @@
 /*
  * Kieselstein-Addon-Erweiterung für VS Code.
  *
- * Gedacht für die Arbeit auf dem Testserver beim Kunden (VS Code über
- * Remote-SSH) oder auf einem eigenen Entwicklungsserver. Sie bündelt die
- * Handgriffe bis zum Test: anlegen, bauen, testen, in den Test-Addon-Server
- * laden, Zustand und Protokoll sehen, Fassaden nachschlagen.
+ * Seitenleiste „Kieselstein-Addons": die Server der Kette – Test und
+ * Produktion, auf Wunsch zusätzlich Entwicklung – mit dem Stand ihrer
+ * Zentrale. Von hier wird das Basiskit (Addon-Server und Zentrale)
+ * eingerichtet und aktualisiert, auch auf der Produktion.
  *
- * In die Produktion führt hier kein Weg. Freigegeben wird in der
- * Test-Zentrale, von einem Menschen – „Freigabe öffnen" bringt einen dorthin.
+ * Addons lädt die Erweiterung nur in die erste Stufe (Entwicklung, wenn es
+ * sie gibt, sonst Test). Weiter geht ein Addon nur über „Ausrollen" in der
+ * Zentrale der vorigen Stufe, durch einen Menschen. Protokolle und Messwerte
+ * stehen in der Zentrale, nicht hier.
  */
 const vscode = require('vscode');
-const fs = require('node:fs');
 const path = require('node:path');
 const w = require('./lib/werkzeug');
+const s = require('./lib/server');
 
 let ausgabe;
 let leiste;
-let protokollBeobachter;
+let ansicht;
+let kontext;
+
+// --- Einstellungen -----------------------------------------------------------
+
+function konfig() {
+  return vscode.workspace.getConfiguration('kieselsteinAddon');
+}
 
 function einstellung(schluessel) {
-  const wert = vscode.workspace.getConfiguration('kieselsteinAddon').get(schluessel);
+  const wert = konfig().get(schluessel);
   return typeof wert === 'string' ? wert.replace(/^~(?=\/|$)/, require('node:os').homedir()) : wert;
 }
 
-function wurzel() {
+function serverListe() {
+  return (konfig().get('server') || []).filter((x) => x && s.STUFEN.includes(x.stufe) && x.kieselstein);
+}
+
+async function serverSpeichern(liste) {
+  const ziel = vscode.workspace.workspaceFolders?.length ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global;
+  await konfig().update('server', liste, ziel);
+}
+
+function wurzel(pflicht = true) {
   for (const ordner of vscode.workspace.workspaceFolders || []) {
     const r = w.projektWurzel(ordner.uri.fsPath);
     if (r) return r;
   }
-  throw new Error('Kein Basiskit-Projekt im Arbeitsbereich (settings.gradle mit basis/).');
+  if (pflicht) throw new Error('Kein Basiskit-Projekt im Arbeitsbereich (settings.gradle mit basis/).');
+  return null;
 }
+
+/**
+ * Der gemeinsame Freigabe-Schlüssel der Kette. Liegt er schon auf einem
+ * eingerichteten Server, wird er übernommen – so kann auch ein zweiter
+ * Entwickler die Kette pflegen. Sonst wird einer erzeugt.
+ */
+async function schluessel() {
+  const id = `kieselsteinAddon.schluessel:${vscode.workspace.workspaceFolders?.[0]?.uri.toString() || 'global'}`;
+  let k = await kontext.secrets.get(id);
+  if (k) return k;
+  for (const srv of s.kette(serverListe())) {
+    const r = await s.ausfuehren(srv, `cat '${srv.kieselstein.replace(/\/$/, '')}/addons/config/freigabe.schluessel' 2>/dev/null`).catch(() => null);
+    if (r && r.code === 0 && /^[0-9a-f]{32,}$/.test(r.aus.trim())) {
+      k = r.aus.trim();
+      break;
+    }
+  }
+  k = k || s.neuerSchluessel();
+  await kontext.secrets.store(id, k);
+  return k;
+}
+
+// --- Seitenleiste ------------------------------------------------------------
+
+class Serveransicht {
+  constructor() {
+    this.aenderung = new vscode.EventEmitter();
+    this.onDidChangeTreeData = this.aenderung.event;
+    this.staende = new Map();
+  }
+
+  neuLaden() {
+    this.staende.clear();
+    this.aenderung.fire();
+  }
+
+  async standVon(srv) {
+    const k = `${srv.stufe}`;
+    if (!this.staende.has(k)) this.staende.set(k, s.stand(srv));
+    return this.staende.get(k);
+  }
+
+  async getChildren(knoten) {
+    if (!knoten) {
+      const liste = s.kette(serverListe());
+      if (!liste.length) return [];
+      return liste.map((srv) => ({ art: 'server', srv }));
+    }
+    if (knoten.art === 'server') {
+      const st = await this.standVon(knoten.srv);
+      return (st.addons || []).map((a) => ({ art: 'addon', srv: knoten.srv, addon: a }));
+    }
+    return [];
+  }
+
+  async getTreeItem(knoten) {
+    if (knoten.art === 'addon') {
+      const t = new vscode.TreeItem(knoten.addon.name, vscode.TreeItemCollapsibleState.None);
+      t.description = knoten.addon.zustand;
+      t.iconPath = new vscode.ThemeIcon(knoten.addon.zustand === 'läuft' ? 'pass' : knoten.addon.zustand === 'fehler' ? 'error' : 'circle-slash');
+      t.contextValue = 'addon';
+      return t;
+    }
+    const srv = knoten.srv;
+    const st = await this.standVon(srv);
+    const p = paketInfo();
+    const t = new vscode.TreeItem(s.STUFEN_NAME[srv.stufe], vscode.TreeItemCollapsibleState.Expanded);
+    let beschreibung;
+    let wert;
+    if (!st.erreichbar) {
+      beschreibung = 'nicht erreichbar';
+      wert = 'server-fehlt';
+      t.iconPath = new vscode.ThemeIcon('debug-disconnect');
+    } else if (!st.kieselstein) {
+      beschreibung = 'kein Kieselstein unter diesem Pfad';
+      wert = 'server-fehlt';
+      t.iconPath = new vscode.ThemeIcon('warning');
+    } else if (!st.installiert) {
+      beschreibung = 'Zentrale nicht installiert';
+      wert = 'server-installieren';
+      t.iconPath = new vscode.ThemeIcon('cloud-download');
+    } else {
+      const veraltet = p && st.basiskit !== p.version;
+      beschreibung = `Zentrale ${st.basiskit}${veraltet ? ` – ${p.version} verfügbar` : ''} · ${st.laeuft ? 'läuft' : 'angehalten'}`;
+      wert = `server-${veraltet ? 'aktualisieren' : 'aktuell'}-${st.laeuft ? 'laeuft' : 'steht'}`;
+      t.iconPath = new vscode.ThemeIcon(st.laeuft ? 'vm-running' : 'vm-outline');
+    }
+    t.description = beschreibung;
+    t.tooltip = new vscode.MarkdownString([
+      `**${s.STUFEN_NAME[srv.stufe]}**`,
+      `Maschine: ${srv.ssh || 'diese Maschine'}`,
+      `Kieselstein: ${srv.kieselstein}${st.kieselsteinVersion ? ` (${st.kieselsteinVersion})` : ''}`,
+      `Zentrale: ${srv.adresse}`,
+      st.fehler ? `Fehler: ${st.fehler}` : '',
+    ].filter(Boolean).join('  \n'));
+    t.contextValue = wert;
+    return t;
+  }
+}
+
+function paketInfo() {
+  return s.paket(kontext.extensionPath, wurzel(false));
+}
+
+// --- Befehle: Server ---------------------------------------------------------
+
+async function serverEintragen() {
+  const vorhanden = serverListe();
+  const wahl = await vscode.window.showQuickPick([
+    { label: 'Test', stufe: 'test', description: 'hier werden Addons geladen und geprüft' },
+    { label: 'Produktion', stufe: 'produktion', description: 'Addons kommen nur über „Ausrollen" aus dem Test' },
+    { label: 'Entwicklung', stufe: 'entwicklung', description: 'zusätzlich: eigener Server vor dem Test' },
+  ].map((x) => ({ ...x, detail: vorhanden.some((v) => v.stufe === x.stufe) ? 'schon eingetragen – wird ersetzt' : undefined })),
+  { placeHolder: 'Welche Stufe eintragen?' });
+  if (!wahl) return;
+  const ssh = await vscode.window.showInputBox({
+    prompt: `${wahl.label}: SSH-Zugang (benutzer@rechner). Leer = diese Maschine.`,
+    placeHolder: 'kieselstein@erp-test',
+  });
+  if (ssh === undefined) return;
+  const kieselstein = await vscode.window.showInputBox({
+    prompt: `${wahl.label}: Ordner der Kieselstein-Installation (mit dist/ und data/)`,
+    placeHolder: '/opt/kieselstein',
+  });
+  if (!kieselstein) return;
+  const versatz = await vscode.window.showInputBox({
+    prompt: `${wahl.label}: Port-Versatz des Addon-Servers (200 → Port 8280)`,
+    value: '200', validateInput: (v) => (/^\d{1,4}$/.test(v) ? null : 'Zahl'),
+  });
+  if (!versatz) return;
+  const rechner = ssh ? ssh.split('@').pop() : require('node:os').hostname();
+  const adresse = await vscode.window.showInputBox({
+    prompt: `${wahl.label}: Adresse der Zentrale im Browser – muss auch von der vorigen Stufe aus erreichbar sein`,
+    value: `http://${rechner}:${8080 + Number(versatz)}`,
+  });
+  if (!adresse) return;
+  const srv = { stufe: wahl.stufe, ssh: ssh.trim(), kieselstein: kieselstein.trim().replace(/\/$/, ''), adresse: adresse.trim().replace(/\/$/, ''), portVersatz: Number(versatz) };
+  await mitFortschritt(`${wahl.label} prüfen`, async () => {
+    const st = await s.stand(srv);
+    if (!st.erreichbar) throw new Error(`${wahl.label} ist nicht erreichbar: ${st.fehler}`);
+    if (!st.kieselstein) throw new Error(`Unter ${srv.kieselstein} liegt keine Kieselstein-Installation.`);
+    ausgabe.appendLine(`✔ ${wahl.label}: Kieselstein ${st.kieselsteinVersion}, Zentrale ${st.installiert ? st.basiskit : 'nicht installiert'}`);
+  }).catch(fehler);
+  await serverSpeichern([...vorhanden.filter((v) => v.stufe !== srv.stufe), srv]);
+  ansicht.neuLaden();
+}
+
+async function serverEntfernen(knoten) {
+  const srv = knoten?.srv;
+  if (!srv) return;
+  const ok = await vscode.window.showWarningMessage(`${s.STUFEN_NAME[srv.stufe]} aus der Liste nehmen? Auf dem Server ändert sich nichts.`, { modal: true }, 'Entfernen');
+  if (ok !== 'Entfernen') return;
+  await serverSpeichern(serverListe().filter((v) => v.stufe !== srv.stufe));
+  ansicht.neuLaden();
+}
+
+/**
+ * Basiskit einrichten oder aktualisieren. Ohne Angabe: alle Server der Kette,
+ * in Reihenfolge – so kennt jede Zentrale die Adresse der nächsten.
+ */
+async function basiskitEinrichten(knoten) {
+  try {
+    const alle = serverListe();
+    const ziele = knoten?.srv ? [knoten.srv] : s.kette(alle);
+    if (!ziele.length) throw new Error('Noch kein Server eingetragen.');
+    const p = paketInfo();
+    if (!p) throw new Error('Kein Basiskit-Paket gefunden (in der Erweiterung oder unter build/paket).');
+    if (ziele.some((z) => z.stufe === 'produktion')) {
+      const ok = await vscode.window.showWarningMessage(
+        `Basiskit ${p.version} auf der Produktion einrichten? Der Addon-Server dort startet dafür neu – Kieselstein selbst nicht.`,
+        { modal: true }, 'Einrichten');
+      if (ok !== 'Einrichten') return;
+    }
+    const k = await schluessel();
+    await mitFortschritt(`Basiskit ${p.version} einrichten`, async (fortschritt) => {
+      for (const z of ziele) {
+        fortschritt.report({ message: s.STUFEN_NAME[z.stufe] });
+        await s.einrichten(z, alle, { paketDatei: p.datei, schluessel: k, melde: (m) => ausgabe.appendLine(m) });
+      }
+      ausgabe.appendLine(`✔ Basiskit ${p.version} eingerichtet: ${ziele.map((z) => s.STUFEN_NAME[z.stufe]).join(', ')}`);
+      vscode.window.showInformationMessage(`Basiskit ${p.version} eingerichtet: ${ziele.map((z) => s.STUFEN_NAME[z.stufe]).join(', ')}.`);
+    });
+  } catch (e) {
+    fehler(e);
+  }
+  ansicht.neuLaden();
+  aktualisieren();
+}
+
+async function serverStarten(knoten) {
+  if (!knoten?.srv) return;
+  await mitFortschritt(`${s.STUFEN_NAME[knoten.srv.stufe]}: Addon-Server starten`, () => s.starten(knoten.srv)).catch(fehler);
+  ansicht.neuLaden();
+}
+
+async function serverAnhalten(knoten) {
+  if (!knoten?.srv) return;
+  const ok = await vscode.window.showWarningMessage(`Addon-Server ${s.STUFEN_NAME[knoten.srv.stufe]} anhalten? Alle Addons dort sind dann nicht erreichbar. Kieselstein läuft weiter.`, { modal: true }, 'Anhalten');
+  if (ok !== 'Anhalten') return;
+  await mitFortschritt(`${s.STUFEN_NAME[knoten.srv.stufe]}: Addon-Server anhalten`, () => s.anhalten(knoten.srv)).catch(fehler);
+  ansicht.neuLaden();
+}
+
+function zentraleOeffnen(knoten) {
+  const srv = knoten?.srv || s.ersteStufe(serverListe());
+  if (srv) vscode.env.openExternal(vscode.Uri.parse(`${srv.adresse}/`));
+}
+
+function verwaltungOeffnen(knoten) {
+  const srv = knoten?.srv || s.ersteStufe(serverListe());
+  if (srv) vscode.env.openExternal(vscode.Uri.parse(`${srv.adresse}/verwaltung.xhtml`));
+}
+
+// --- Befehle: Addons ---------------------------------------------------------
 
 function optionen() {
-  return {
-    jdkPfad: einstellung('jdk') || undefined,
-    clientLib: einstellung('clientLib') || undefined,
-    melde: (z) => ausgabe.appendLine(z),
-  };
+  return { jdkPfad: einstellung('jdk') || undefined, clientLib: einstellung('clientLib') || undefined, melde: (z) => ausgabe.appendLine(z) };
 }
 
-/** Welches Addon? Das der offenen Datei, sonst Auswahl. */
-async function addonWaehlen(frage, mitZentrale = true) {
+async function addonWaehlen(frage) {
   const r = wurzel();
-  const offen = vscode.window.activeTextEditor?.document.uri.fsPath;
-  const passend = w.addonZuDatei(r, offen);
-  if (passend && (mitZentrale || passend.name !== 'zentrale')) return passend;
-  const liste = w.addons(r).filter((a) => mitZentrale || a.name !== 'zentrale');
+  const passend = w.addonZuDatei(r, vscode.window.activeTextEditor?.document.uri.fsPath);
+  if (passend && passend.name !== 'zentrale') return passend;
+  const liste = w.addons(r).filter((a) => a.name !== 'zentrale');
   if (liste.length === 1) return liste[0];
-  const wahl = await vscode.window.showQuickPick(
-    liste.map((a) => ({ label: a.titel, description: a.name, addon: a })), { placeHolder: frage });
+  const wahl = await vscode.window.showQuickPick(liste.map((a) => ({ label: a.titel, description: a.name, addon: a })), { placeHolder: frage });
   return wahl?.addon;
 }
+
+async function addonAnlegen() {
+  try {
+    const r = wurzel();
+    const name = await vscode.window.showInputBox({
+      prompt: 'Name des Addons (wird Adresse und Ordner), z. B. lieferscheine',
+      validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
+    });
+    if (!name) return;
+    const titel = await vscode.window.showInputBox({ prompt: 'Titel, wie er in der Zentrale steht', value: name });
+    if (!titel) return;
+    const beschreibung = (await vscode.window.showInputBox({ prompt: 'Ein Satz, was das Addon tut' })) || '';
+    const ordner = w.addonAnlegen(r, name, titel, beschreibung);
+    await vscode.window.showTextDocument(vscode.Uri.file(path.join(ordner, 'src/main/webapp/index.xhtml')));
+    vscode.window.showInformationMessage(`Addon „${titel}" angelegt.`);
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+/** Bauen und in die erste Stufe laden (Entwicklung, wenn eingetragen, sonst Test). */
+async function inErsteStufe(addonVorgabe) {
+  try {
+    const addon = addonVorgabe || await addonWaehlen('Welches Addon laden?');
+    if (!addon) return;
+    const erste = s.ersteStufe(serverListe());
+    if (!erste) throw new Error('Kein Test-Server eingetragen – in der Seitenleiste „Kieselstein-Addons" einen Server eintragen.');
+    const stufe = s.STUFEN_NAME[erste.stufe];
+    const e = await mitFortschritt(`${addon.titel}: bauen und in ${stufe} laden`, async (fortschritt) => {
+      fortschritt.report({ message: 'bauen …' });
+      const war = await w.bauen(wurzel(), addon.name, optionen());
+      fortschritt.report({ message: `in ${stufe} laden …` });
+      return s.inErsteStufeLaden(war, serverListe(), { melde: (m) => ausgabe.appendLine(m) });
+    });
+    ausgabe.appendLine(`✔ ${e.name} läuft in ${stufe} (nach ${e.sekunden} s)`);
+    ansicht.neuLaden();
+    // nicht abwarten: die Meldung bleibt stehen, der Befehl ist fertig
+    vscode.window.showInformationMessage(`${addon.titel} läuft in ${stufe}.`, 'Öffnen').then((auf) => {
+      if (auf) vscode.env.openExternal(vscode.Uri.parse(`${e.adresse}/${addon.name}/`));
+    });
+    return e;
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+async function testen() {
+  try {
+    const addon = await addonWaehlen('Welches Addon testen?');
+    if (!addon) return;
+    await mitFortschritt(`${addon.titel}: Tests`, () => w.testen(wurzel(), addon.name, optionen()));
+    ausgabe.appendLine('✔ Tests bestanden');
+    vscode.window.showInformationMessage(`${addon.titel}: Tests bestanden.`);
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+async function oeffnen() {
+  const addon = await addonWaehlen('Welches Addon öffnen?');
+  const erste = s.ersteStufe(serverListe());
+  if (addon && erste) vscode.env.openExternal(vscode.Uri.parse(`${erste.adresse}/${addon.name}/`));
+}
+
+async function fassadeNachschlagen() {
+  try {
+    const lib = einstellung('clientLib');
+    if (!lib) throw new Error('Einstellung kieselsteinAddon.clientLib fehlt (lib/ des Kieselstein-Clients der Zielversion).');
+    const wahl = await vscode.window.showQuickPick(
+      w.fassaden(lib).map((k) => ({ label: k.split('.').pop(), description: k })), { placeHolder: 'Fassade suchen, z. B. AuftragFac' });
+    if (!wahl) return;
+    const dok = await vscode.workspace.openTextDocument({ content: w.fassadeZeigen(lib, wahl.description, einstellung('jdk') || undefined), language: 'java' });
+    vscode.window.showTextDocument(dok, { preview: true });
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+// --- Hilfen ------------------------------------------------------------------
 
 async function mitFortschritt(titel, arbeit) {
   ausgabe.show(true);
@@ -64,156 +369,51 @@ function fehler(e) {
   vscode.window.showErrorMessage(e.message.split('\n')[0]);
 }
 
-// --- Befehle ---------------------------------------------------------------
-
-async function addonAnlegen() {
-  try {
-    const r = wurzel();
-    const name = await vscode.window.showInputBox({
-      prompt: 'Name des Addons (wird Adresse und Ordner), z. B. lieferscheine',
-      validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
-    });
-    if (!name) return;
-    const titel = await vscode.window.showInputBox({ prompt: 'Titel, wie er in der Zentrale steht', value: name });
-    if (!titel) return;
-    const beschreibung = await vscode.window.showInputBox({ prompt: 'Ein Satz, was das Addon tut' }) || '';
-    const ordner = w.addonAnlegen(r, name, titel, beschreibung);
-    const seite = path.join(ordner, 'src/main/webapp/index.xhtml');
-    await vscode.window.showTextDocument(vscode.Uri.file(seite));
-    vscode.window.showInformationMessage(`Addon „${titel}" angelegt. Bauen und in den Test laden: Kieselstein: Addon in den Test laden.`);
-  } catch (e) {
-    fehler(e);
-  }
-}
-
-async function inDenTest() {
-  try {
-    const addon = await addonWaehlen('Welches Addon in den Test laden?');
-    if (!addon) return;
-    const addonsOrdner = einstellung('addonsOrdner');
-    if (!addonsOrdner) throw new Error('Einstellung kieselsteinAddon.addonsOrdner fehlt (der Ordner addons/ neben dist und data).');
-    await mitFortschritt(`${addon.titel}: bauen und in den Test laden`, async (fortschritt) => {
-      fortschritt.report({ message: 'bauen …' });
-      const war = await w.bauen(wurzel(), addon.name, optionen());
-      fortschritt.report({ message: 'laden …' });
-      const e = await w.inDenTestLaden(war, addonsOrdner);
-      ausgabe.appendLine(`✔ ${e.name} läuft im Test (nach ${e.sekunden} s)`);
-      const auf = await vscode.window.showInformationMessage(`${addon.titel} läuft im Test.`, 'Öffnen');
-      if (auf) vscode.env.openExternal(vscode.Uri.parse(adresse(addon.name)));
-    });
-    aktualisieren();
-  } catch (e) {
-    fehler(e);
-  }
-}
-
-async function testen() {
-  try {
-    const addon = await addonWaehlen('Welches Addon testen?');
-    if (!addon) return;
-    await mitFortschritt(`${addon.titel}: Tests`, async () => {
-      await w.testen(wurzel(), addon.name, optionen());
-      ausgabe.appendLine('✔ Tests bestanden');
-      vscode.window.showInformationMessage(`${addon.titel}: Tests bestanden.`);
-    });
-  } catch (e) {
-    fehler(e);
-  }
-}
-
-function adresse(name) {
-  const basis = (einstellung('adresse') || 'http://localhost:8280').replace(/\/$/, '');
-  return name && name !== 'zentrale' ? `${basis}/${name}/` : `${basis}/`;
-}
-
-async function oeffnen() {
-  const addon = await addonWaehlen('Welches Addon öffnen?');
-  if (addon) vscode.env.openExternal(vscode.Uri.parse(adresse(addon.name)));
-}
-
-function freigabeOeffnen() {
-  // Bewusst nur ein Verweis: Freigeben tut ein Mensch, in der Test-Zentrale.
-  vscode.env.openExternal(vscode.Uri.parse(`${adresse()}verwaltung.xhtml`));
-}
-
-function protokoll() {
-  const addonsOrdner = einstellung('addonsOrdner');
-  const datei = path.join(addonsOrdner || '', 'logs', 'server.log');
-  if (!fs.existsSync(datei)) {
-    vscode.window.showWarningMessage(`Kein Protokoll unter ${datei}`);
+async function aktualisieren() {
+  const erste = s.ersteStufe(serverListe());
+  if (!erste) {
+    leiste.text = '$(server) Kieselstein: Server eintragen';
+    leiste.command = 'kieselsteinAddon.serverEintragen';
     return;
   }
-  const kanal = vscode.window.createOutputChannel('Kieselstein Addon-Server', 'log');
-  kanal.show(true);
-  let stelle = Math.max(0, fs.statSync(datei).size - 20000);
-  const lesen = () => {
-    const groesse = fs.statSync(datei).size;
-    if (groesse < stelle) stelle = 0; // neu begonnen
-    if (groesse === stelle) return;
-    const fd = fs.openSync(datei, 'r');
-    const puffer = Buffer.alloc(groesse - stelle);
-    fs.readSync(fd, puffer, 0, puffer.length, stelle);
-    fs.closeSync(fd);
-    stelle = groesse;
-    kanal.append(puffer.toString('utf8'));
-  };
-  lesen();
-  protokollBeobachter?.close();
-  protokollBeobachter = fs.watch(datei, lesen);
+  const st = await s.stand(erste);
+  const laeuft = (st.addons || []).filter((a) => a.zustand === 'läuft').length;
+  leiste.text = `$(server) ${s.STUFEN_NAME[erste.stufe]} · ${st.installiert ? `${laeuft}/${st.addons.length} Addons` : 'Zentrale fehlt'}`;
+  leiste.tooltip = `Addons werden nach ${s.STUFEN_NAME[erste.stufe]} geladen (${erste.adresse})`;
+  leiste.command = 'kieselsteinAddon.zentraleOeffnen';
 }
 
-async function fassadeNachschlagen() {
-  try {
-    const lib = einstellung('clientLib');
-    if (!lib) throw new Error('Einstellung kieselsteinAddon.clientLib fehlt (lib/ des Kieselstein-Clients der Zielversion).');
-    const wahl = await vscode.window.showQuickPick(
-      w.fassaden(lib).map((k) => ({ label: k.split('.').pop(), description: k })),
-      { placeHolder: 'Fassade suchen, z. B. AuftragFac' });
-    if (!wahl) return;
-    const text = w.fassadeZeigen(lib, wahl.description, einstellung('jdk') || undefined);
-    const dok = await vscode.workspace.openTextDocument({ content: text, language: 'java' });
-    vscode.window.showTextDocument(dok, { preview: true });
-  } catch (e) {
-    fehler(e);
-  }
-}
-
-// --- Statusleiste ------------------------------------------------------------
-
-function aktualisieren() {
-  const addonsOrdner = einstellung('addonsOrdner');
-  if (!addonsOrdner) {
-    leiste.text = '$(server) Kieselstein: Addon-Server einstellen';
-    leiste.tooltip = 'kieselsteinAddon.addonsOrdner setzen';
-    return;
-  }
-  const z = w.zustand(addonsOrdner);
-  const laeuft = z.addons.filter((a) => a.zustand === 'läuft').length;
-  const fehlerhaft = z.addons.filter((a) => a.zustand === 'Fehler').length;
-  leiste.text = `$(server) ${z.stufe === 'test' ? 'Test' : z.stufe} · ${laeuft}/${z.addons.length} Addons${fehlerhaft ? ` · ${fehlerhaft} Fehler` : ''}`;
-  leiste.tooltip = z.addons.map((a) => `${a.name}: ${a.zustand}`).join('\n') || 'keine Addons';
-  leiste.backgroundColor = fehlerhaft ? new vscode.ThemeColor('statusBarItem.errorBackground') : undefined;
-}
-
-function activate(kontext) {
+function activate(k) {
+  kontext = k;
   ausgabe = vscode.window.createOutputChannel('Kieselstein Addons');
   leiste = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  leiste.command = 'kieselsteinAddon.oeffnen';
   leiste.show();
-  aktualisieren();
-  const takt = setInterval(aktualisieren, 5000);
+  ansicht = new Serveransicht();
+  k.subscriptions.push(vscode.window.registerTreeDataProvider('kieselsteinAddon.server', ansicht));
+  aktualisieren().catch(() => {});
+  const takt = setInterval(() => aktualisieren().catch(() => {}), 15000);
 
   const befehle = {
+    'kieselsteinAddon.serverEintragen': serverEintragen,
+    'kieselsteinAddon.serverEntfernen': serverEntfernen,
+    'kieselsteinAddon.basiskitEinrichten': basiskitEinrichten,
+    'kieselsteinAddon.serverStarten': serverStarten,
+    'kieselsteinAddon.serverAnhalten': serverAnhalten,
+    'kieselsteinAddon.zentraleOeffnen': zentraleOeffnen,
+    'kieselsteinAddon.verwaltungOeffnen': verwaltungOeffnen,
+    'kieselsteinAddon.ansichtNeuLaden': () => ansicht.neuLaden(),
     'kieselsteinAddon.anlegen': addonAnlegen,
-    'kieselsteinAddon.inDenTest': inDenTest,
+    'kieselsteinAddon.inDenTest': inErsteStufe,
     'kieselsteinAddon.testen': testen,
     'kieselsteinAddon.oeffnen': oeffnen,
-    'kieselsteinAddon.freigabeOeffnen': freigabeOeffnen,
-    'kieselsteinAddon.protokoll': protokoll,
     'kieselsteinAddon.fassade': fassadeNachschlagen,
   };
-  for (const [id, f] of Object.entries(befehle)) kontext.subscriptions.push(vscode.commands.registerCommand(id, f));
-  kontext.subscriptions.push(ausgabe, leiste, { dispose: () => { clearInterval(takt); protokollBeobachter?.close(); } });
+  for (const [id, f] of Object.entries(befehle)) k.subscriptions.push(vscode.commands.registerCommand(id, f));
+  k.subscriptions.push(ausgabe, leiste, { dispose: () => clearInterval(takt) },
+    vscode.workspace.onDidChangeConfiguration((e) => { if (e.affectsConfiguration('kieselsteinAddon')) { ansicht.neuLaden(); aktualisieren(); } }));
+
+  // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
+  return { server: s, werkzeug: w, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel };
 }
 
 function deactivate() {}

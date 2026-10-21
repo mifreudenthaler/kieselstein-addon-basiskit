@@ -67,16 +67,26 @@ public class Verwaltung implements Serializable {
         }
     }
 
-    public boolean isTest() {
-        return Freigabe.istTest();
+    /** Nimmt diese Stufe Pakete an (Test, Produktion) – dann gibt es auch ein Zurück. */
+    public boolean isEmpfaengt() {
+        return Freigabe.kannEmpfangen();
     }
 
     public String getStufe() {
-        return isTest() ? "Test" : "Produktion";
+        return Freigabe.stufenName(Freigabe.stufe());
     }
 
     public boolean isAusrollenEingerichtet() {
-        return isTest() && !Freigabe.produktion().isEmpty() && Freigabe.eingerichtet();
+        return Freigabe.kannSenden() && !Freigabe.produktion().isEmpty() && Freigabe.eingerichtet();
+    }
+
+    /** Name der nächsten Stufe, wie sie sich selbst meldet – sonst aus der Kette geschlossen. */
+    public String getNaechsteStufe() {
+        String[] s = produktion().get("#stufe");
+        if (s != null && s.length > 0) {
+            return Freigabe.stufenName(s[0]);
+        }
+        return "entwicklung".equals(Freigabe.stufe()) ? "Test" : "Produktion";
     }
 
     public String getProduktionsAdresse() {
@@ -96,7 +106,7 @@ public class Verwaltung implements Serializable {
 
     public List<Zeile> getAddons() {
         if (zeilen == null) {
-            zeilen = AddonOrdner.alle().stream().map(a -> new Zeile(a, produktion(), isAusrollenEingerichtet()))
+            zeilen = AddonOrdner.alle().stream().map(a -> new Zeile(a, produktion(), isAusrollenEingerichtet(), getNaechsteStufe()))
                     .sorted((p, q) -> Boolean.compare(p.isZentrale(), q.isZentrale()))
                     .collect(Collectors.toList());
         }
@@ -141,7 +151,7 @@ public class Verwaltung implements Serializable {
             return;
         }
         if (!geprueft) {
-            melden(FacesMessage.SEVERITY_ERROR, "Nicht ausgerollt: Bitte bestätigen, dass " + ausrollen.getTitel() + " im Test geprüft ist.");
+            melden(FacesMessage.SEVERITY_ERROR, "Nicht ausgerollt: Bitte bestätigen, dass " + ausrollen.getTitel() + " hier geprüft ist.");
             return;
         }
         String name = ausrollen.getName();
@@ -290,9 +300,11 @@ public class Verwaltung implements Serializable {
         private final List<String> archiv;
         private final String vorigeVersion;
         private final Auswertung stunde;
+        private final String naechste;
 
-        Zeile(Startseite.Addon a, Map<String, String[]> produktion, boolean ausrollbar) {
+        Zeile(Startseite.Addon a, Map<String, String[]> produktion, boolean ausrollbar, String naechste) {
             this.addon = a;
+            this.naechste = naechste;
             this.prod = produktion.get(a.getName());
             this.ausrollbar = ausrollbar;
             Path war = AddonOrdner.war(a.getName());
@@ -341,6 +353,7 @@ public class Verwaltung implements Serializable {
 
         // Vergleich mit der Produktion (nur in der Test-Stufe)
         public boolean isMitProduktion() { return ausrollbar; }
+        public String getNaechste() { return naechste; }
         public String getProduktionVersion() { return prod == null ? null : prod[0]; }
         public boolean isInProduktion() { return prod != null; }
         public boolean isGleichWieProduktion() { return prod != null && prod.length > 2 && prod[2].equals(sha); }
@@ -350,9 +363,9 @@ public class Verwaltung implements Serializable {
                 return null;
             }
             if (prod == null) {
-                return "noch nicht in Produktion";
+                return "noch nicht installiert";
             }
-            return isGleichWieProduktion() ? "gleich wie im Test (" + prod[0] + ")" : "läuft mit " + prod[0] + " – Test ist neuer";
+            return isGleichWieProduktion() ? "gleich wie hier (" + prod[0] + ")" : "läuft mit " + prod[0] + " – hier ist neuer";
         }
 
         // Verbrauch der letzten Stunde

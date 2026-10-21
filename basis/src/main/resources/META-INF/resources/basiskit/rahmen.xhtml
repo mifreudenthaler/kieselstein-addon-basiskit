@@ -25,7 +25,7 @@
     <div class="ks-kopf">
         <a href="/"><h:graphicImage library="basiskit" name="kieselstein-logo.png" styleClass="ks-logo" alt="Kieselstein ERP"/></a>
         <span class="ks-titel">#{titel}</span>
-        <h:outputText styleClass="ks-stufe" value="Test" rendered="#{rahmen.test}"/>
+        <h:outputText styleClass="ks-stufe" value="#{rahmen.stufeText}" rendered="#{rahmen.test}"/>
         <ui:fragment rendered="#{sitzung.angemeldet}">
             <div class="ks-rechts">
                 <a href="/">Addons</a>

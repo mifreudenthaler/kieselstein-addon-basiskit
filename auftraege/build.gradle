@@ -1,6 +1,6 @@
 // Addon „Aufträge": die Auftragsliste mit aktuellem Status.
 apply plugin: 'war'
-version = '0.3.0'
+version = '0.3.1'
 
 dependencies {
     implementation project(':basis')

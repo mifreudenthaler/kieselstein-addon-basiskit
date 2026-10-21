@@ -1,5 +1,6 @@
 // Die Addon-Zentrale: Startseite des Addon-Servers.
 apply plugin: 'war'
+version = rootProject.basiskitVersion
 
 dependencies {
     implementation project(':basis')

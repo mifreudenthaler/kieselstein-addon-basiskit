@@ -4,6 +4,16 @@ Alles, was man braucht, um ein Kieselstein-Addon zu bauen, zu testen und auszuro
 Addon-Server, Basisschicht, Addon-Zentrale, Vorlage, VS-Code-Erweiterung und Dokumentation.
 Der Vorschlag dazu steht in Nexus (Kieselstein / Entwicklung, „Kieselstein-Addon-Entwicklung Basiskit").
 
+## Stufen und Installation
+
+- Kette: **Test → Produktion**, auf Wunsch zusätzlich **Entwicklung** davor. VS Code lädt Addons nur in die erste
+  Stufe; jeder weitere Schritt ist „In … ausrollen" in der Zentrale der vorigen Stufe (signiert, mit Rückfall).
+- Installationspaket: `./gradlew paket` → `build/paket/kieselstein-basiskit-<version>.tar.gz`
+  (einrichten.sh, start.sh, stopp.sh, status.sh, module.xml, zentrale.war, VERSION).
+- Eingerichtet wird über die VS-Code-Erweiterung (`vscode-erweiterung/`, Seitenleiste „Kieselstein-Addons"),
+  von Hand ginge es so: `bash einrichten.sh <kieselstein-ordner> --stufe test --naechste-stufe http://erp-prod:8280`.
+  Die Kieselstein-Client-Bibliotheken kommen aus `dist/clients` der Installation selbst.
+
 ## Aufbau
 
 - `addon-server/` – richtet neben einer Kieselstein-Installation den Ordner `addons/` ein

@@ -5,9 +5,7 @@
  * Alles hier ist reines Node, damit es sich ohne Editor prüfen lässt. Die
  * Erweiterung (extension.js) ruft es nur auf und zeigt das Ergebnis.
  *
- * Bewusst nicht enthalten: ein Weg in die Produktion. Die Erweiterung reicht
- * bis zum Test-Addon-Server. In die Produktion kommt ein Addon nur über
- * „Für Produktion freigeben" in der Test-Zentrale, durch einen Menschen.
+ * Server, Stufen und Laden in die erste Stufe stehen in server.js.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -137,59 +135,6 @@ function testen(wurzel, addon, optionen) {
   return gradle(wurzel, [`:${addon}:test`], optionen);
 }
 
-/**
- * Ein WAR in den Test-Addon-Server legen und warten, bis WildFly es gestartet hat.
- * Weigert sich, wenn der Addon-Server nicht die Stufe „test" hat.
- */
-async function inDenTestLaden(war, addonsOrdner, { sekunden = 120 } = {}) {
-  const stufe = stufeLesen(addonsOrdner);
-  if (stufe !== 'test') {
-    throw new Error(`Der Addon-Server in ${addonsOrdner} hat die Stufe „${stufe}". Die Erweiterung lädt nur in den Test – in die Produktion kommt ein Addon über die Freigabe in der Test-Zentrale.`);
-  }
-  const deployments = path.join(addonsOrdner, 'deployments');
-  const name = path.basename(war);
-  const ziel = path.join(deployments, name);
-  const marke = (endung) => `${ziel}${endung}`;
-  for (const e of ['.deployed', '.failed', '.skipdeploy', '.undeployed']) fs.rmSync(marke(e), { force: true });
-  const tmp = path.join(deployments, `.${name}.neu`);
-  fs.copyFileSync(war, tmp);
-  fs.renameSync(tmp, ziel);
-  fs.writeFileSync(marke('.dodeploy'), '');
-  const ende = Date.now() + sekunden * 1000;
-  while (Date.now() < ende) {
-    if (fs.existsSync(marke('.failed'))) {
-      const grund = fs.readFileSync(marke('.failed'), 'utf8').slice(0, 1500);
-      throw new Error(`WildFly konnte ${name} nicht starten:\n${grund}`);
-    }
-    if (fs.existsSync(marke('.deployed')) && !fs.existsSync(marke('.dodeploy')) && !fs.existsSync(marke('.isdeploying'))) {
-      return { name, sekunden: Math.round((sekunden * 1000 - (ende - Date.now())) / 100) / 10 };
-    }
-    await new Promise((r) => setTimeout(r, 400));
-  }
-  throw new Error(`${name} ist nach ${sekunden} s noch nicht gestartet`);
-}
-
-function stufeLesen(addonsOrdner) {
-  const conf = path.join(addonsOrdner, 'config', 'addon-server.conf');
-  if (!fs.existsSync(conf)) return 'unbekannt';
-  const m = fs.readFileSync(conf, 'utf8').match(/^STUFE=(\S+)/m);
-  return m ? m[1].toLowerCase() : 'test';
-}
-
-/** Was im Addon-Server liegt und läuft. */
-function zustand(addonsOrdner) {
-  const deployments = path.join(addonsOrdner, 'deployments');
-  if (!fs.existsSync(deployments)) return { stufe: 'unbekannt', addons: [] };
-  const liste = fs.readdirSync(deployments).filter((n) => n.endsWith('.war')).map((n) => {
-    const m = (e) => fs.existsSync(path.join(deployments, n + e));
-    return {
-      name: n.replace(/\.war$/, ''),
-      zustand: m('.failed') ? 'Fehler' : m('.deployed') ? 'läuft' : m('.skipdeploy') || m('.undeployed') ? 'abgeschaltet' : 'startet',
-    };
-  });
-  return { stufe: stufeLesen(addonsOrdner), addons: liste };
-}
-
 /** Die Fassaden der Kieselstein-Version: alle *Fac-Schnittstellen im ejb-jar. */
 function fassaden(clientLib) {
   const jar = fs.readdirSync(clientLib).find((n) => /^kieselstein-ejb-.*\.jar$/.test(n));
@@ -210,6 +155,5 @@ function fassadeZeigen(clientLib, klasse, jdkPfad) {
 }
 
 module.exports = {
-  addons, addonZuDatei, projektWurzel, addonAnlegen, bauen, testen, inDenTestLaden,
-  stufeLesen, zustand, fassaden, fassadeZeigen, leseProperties,
+  addons, addonZuDatei, projektWurzel, addonAnlegen, bauen, testen, fassaden, fassadeZeigen, leseProperties,
 };

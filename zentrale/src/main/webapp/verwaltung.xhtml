@@ -17,7 +17,7 @@
                 <p class="ks-unterzeile">
                     Addon-Server <strong>#{verwaltung.stufe}</strong> · Kieselstein #{verwaltung.kieselstein}
                     <h:outputText rendered="#{verwaltung.ausrollenEingerichtet}"
-                                  value=" · Produktion #{verwaltung.produktionsAdresse}#{verwaltung.produktionErreichbar ? '' : ' – nicht erreichbar'}"/>
+                                  value=" · nächste Stufe #{verwaltung.naechsteStufe} #{verwaltung.produktionsAdresse}#{verwaltung.produktionErreichbar ? '' : ' – nicht erreichbar'}"/>
                 </p>
 
                 <h:form id="f">
@@ -56,14 +56,14 @@
                                             </svg>
                                             <ui:fragment rendered="#{z.mitProduktion}">
                                                 <div class="ks-vergleich #{z.gleichWieProduktion ? 'gleich' : 'anders'}">
-                                                    <div class="name">Produktion</div>
+                                                    <div class="name">#{z.naechste}</div>
                                                     <div class="wert">#{z.vergleich}</div>
                                                 </div>
                                             </ui:fragment>
                                         </div>
 
                                         <div class="ks-addon-fuss">
-                                            <p:commandButton value="In Produktion ausrollen …" rendered="#{z.ausrollbar}"
+                                            <p:commandButton value="In #{z.naechste} ausrollen …" rendered="#{z.ausrollbar}"
                                                              action="#{verwaltung.ausrollenVorbereiten(z.name)}" update=":f:ausrollenDlg"
                                                              oncomplete="PF('ausrollenDlg').show()" styleClass="ks-haupt"/>
                                             <p:commandButton value="Neu starten" action="#{verwaltung.neuStarten(z.name)}" update="@form"
@@ -78,7 +78,7 @@
                                                              rendered="#{z.abgeschaltet}"/>
                                             <p:commandButton value="Einstellungen" action="#{verwaltung.einstellungenOeffnen(z.name)}" update=":f:einst"
                                                              oncomplete="PF('einstDlg').show()" styleClass="ui-button-outlined" rendered="#{not z.zentrale}"/>
-                                            <p:commandButton value="Zurück auf #{z.vorigeVersion}" rendered="#{not verwaltung.test and z.vorigeVersion ne null}"
+                                            <p:commandButton value="Zurück auf #{z.vorigeVersion}" rendered="#{verwaltung.empfaengt and z.vorigeVersion ne null}"
                                                              action="#{verwaltung.zurueck(z.name, z.vorigeDatei)}" update="@form" styleClass="ui-button-outlined">
                                                 <p:confirm header="Zurück auf #{z.vorigeVersion}"
                                                            message="#{z.titel} auf Version #{z.vorigeVersion} zurücksetzen? Die laufende Version #{z.version} kommt ins Archiv."/>
@@ -210,15 +210,15 @@
                     </p:tabView>
 
                     <!-- ============ Dialog: In Produktion ausrollen ============ -->
-                    <p:dialog id="ausrollenDlg" widgetVar="ausrollenDlg" header="In Produktion ausrollen" modal="true" width="620" resizable="false">
+                    <p:dialog id="ausrollenDlg" widgetVar="ausrollenDlg" header="In #{verwaltung.naechsteStufe} ausrollen" modal="true" width="620" resizable="false">
                         <h:panelGroup rendered="#{verwaltung.ausrollen ne null}" layout="block">
                             <p style="margin-top:0">
-                                <strong>#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version}</strong> geht jetzt in die Produktion. Das passiert:
+                                <strong>#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version}</strong> geht jetzt in die Stufe #{verwaltung.naechsteStufe}. Das passiert:
                             </p>
                             <ol class="ks-ablauf">
-                                <li>Das Paket, das hier im Test läuft, wird unverändert an die Produktion übergeben
+                                <li>Das Paket, das hier läuft, wird unverändert an #{verwaltung.naechsteStufe} übergeben
                                     (#{verwaltung.produktionsAdresse}, Prüfsumme #{verwaltung.ausrollen.pruefsumme}).</li>
-                                <li>Die Produktion legt ihre laufende Version
+                                <li>#{verwaltung.naechsteStufe} legt die dort laufende Version
                                     (#{verwaltung.ausrollen.inProduktion ? verwaltung.ausrollen.produktionVersion : 'keine'}) ins Archiv
                                     und setzt die neue ein.</li>
                                 <li>Sie startet das Addon und prüft, ob es läuft. Startet es nicht, läuft von selbst wieder die vorige Version.</li>
@@ -226,7 +226,7 @@
                             <p class="ks-klein">Kieselstein selbst und die anderen Addons laufen dabei weiter. Wer das Addon gerade benutzt, muss die Seite neu laden.</p>
                             <div style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
                                 <p:selectBooleanCheckbox id="geprueft" value="#{verwaltung.geprueft}"/>
-                                <p:outputLabel for="geprueft" value="#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version} ist im Test geprüft."/>
+                                <p:outputLabel for="geprueft" value="#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version} ist hier (#{verwaltung.stufe}) geprüft."/>
                             </div>
                         </h:panelGroup>
                         <f:facet name="footer">
@@ -236,7 +236,7 @@
                         </f:facet>
                     </p:dialog>
                     <p:dialog widgetVar="ausrollenWarte" modal="true" closable="false" resizable="false" showHeader="false" width="380">
-                        <div style="padding:1rem;text-align:center">Wird ausgerollt und in der Produktion gestartet …</div>
+                        <div style="padding:1rem;text-align:center">Wird ausgerollt und in #{verwaltung.naechsteStufe} gestartet …</div>
                     </p:dialog>
 
                     <!-- ============ Dialog: Einstellungen ============ -->

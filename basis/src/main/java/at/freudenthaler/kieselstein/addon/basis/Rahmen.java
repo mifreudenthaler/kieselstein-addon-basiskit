@@ -34,6 +34,11 @@ public class Rahmen {
         return !"produktion".equalsIgnoreCase(Kieselstein.stufe());
     }
 
+    /** „Test" oder „Entwicklung" – steht im Kopf jeder Seite, nur nicht in der Produktion. */
+    public String getStufeText() {
+        return "entwicklung".equalsIgnoreCase(Kieselstein.stufe()) ? "Entwicklung" : "Test";
+    }
+
     /** Die Anmeldeseite der Zentrale zeigt sich auch ohne Anmeldung. */
     public boolean isAnmeldeseite() {
         HttpServletRequest r = anfrage();
