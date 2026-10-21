@@ -7,6 +7,12 @@
             <module name="kieselstein.client"/>
             <module name="org.wildfly.naming-client"/>
             <module name="org.jboss.ejb-client"/>
+            <!-- Messung der Basisschicht: Rechenzeit und Speicher je Anfrage -->
+            <system export="true">
+                <paths>
+                    <path name="com/sun/management"/>
+                </paths>
+            </system>
         </dependencies>
     </deployment>
 </jboss-deployment-structure>

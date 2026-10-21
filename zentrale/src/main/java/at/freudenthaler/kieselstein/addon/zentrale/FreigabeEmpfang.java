@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletResponse;
  * Paket von selbst zurück.
  *
  *   POST /freigabe/paket   (Kopfzeilen X-Addon, X-Version, X-Sha256, X-Von, X-Zeit, X-Signatur)
- *   GET  /freigabe/stand   (X-Zeit, X-Signatur über „stand|zeit") → Addon, Version, Zustand je Zeile
+ *   GET  /freigabe/stand   (X-Zeit, X-Signatur über „stand|zeit") → Addon, Version, Zustand, Prüfsumme je Zeile
  */
 @WebServlet("/freigabe/*")
 public class FreigabeEmpfang extends HttpServlet {
@@ -41,7 +41,8 @@ public class FreigabeEmpfang extends HttpServlet {
         }
         StringBuilder sb = new StringBuilder();
         for (Startseite.Addon a : AddonOrdner.alle()) {
-            sb.append(a.getName()).append('\t').append(a.getVersion()).append('\t').append(a.getZustand()).append('\n');
+            sb.append(a.getName()).append('\t').append(a.getVersion()).append('\t').append(a.getZustand())
+                    .append('\t').append(AddonOrdner.sha256(AddonOrdner.war(a.getName()))).append('\n');
         }
         antworten(res, 200, sb.toString());
     }
@@ -86,9 +87,9 @@ public class FreigabeEmpfang extends HttpServlet {
             }
             Path vorher = AddonOrdner.archivieren(name);
             AddonOrdner.einsetzen(name, eingang);
-            AddonOrdner.verlauf(von, "Freigabe eingesetzt", name, version);
+            AddonOrdner.verlauf(von, "aus dem Test übernommen, wird gestartet", name, version);
             if (AddonOrdner.wartenBisGestartet(name, 120)) {
-                AddonOrdner.verlauf(von, "läuft in Produktion", name, version);
+                AddonOrdner.verlauf(von, "ausgerollt – läuft", name, version);
                 antworten(res, 200, "ok\t" + name + " " + version + " läuft in Produktion");
                 return;
             }
@@ -125,7 +126,7 @@ public class FreigabeEmpfang extends HttpServlet {
             }
         }
         if (!Freigabe.frisch(zeit) || !Freigabe.signaturStimmt(req.getHeader("X-Signatur"), teile)) {
-            AddonOrdner.verlauf(req.getRemoteAddr(), "Freigabe abgewiesen (Signatur oder Zeit)", String.valueOf(teile[0]), "");
+            AddonOrdner.verlauf(req.getRemoteAddr(), "Übergabe abgewiesen (Signatur oder Zeit)", String.valueOf(teile[0]), "");
             antworten(res, 403, "Signatur oder Zeit stimmt nicht");
             return false;
         }

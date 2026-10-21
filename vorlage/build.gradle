@@ -1,0 +1,23 @@
+// Addon „__TITEL__"
+apply plugin: 'war'
+version = '0.1.0'
+
+dependencies {
+    implementation project(':basis')
+    implementation 'org.primefaces:primefaces:15.0.6'
+    compileOnly 'javax:javaee-api:8.0.1'
+    compileOnly rootProject.kieselsteinApi
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }
+
+processResources {
+    inputs.property('version', project.version)
+    filesMatching('addon.properties') { expand(version: project.version) }
+}
+
+war {
+    archiveFileName = '__NAME__.war'
+}

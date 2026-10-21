@@ -55,6 +55,9 @@ public class Sitzung implements Serializable {
         if (client == null) {
             uebernehmen();
         }
+        if (client != null) {
+            Protokoll.benutzer(client.getBenutzername().split("\\|")[0].trim());
+        }
         return client != null;
     }
 

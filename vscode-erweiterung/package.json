@@ -1,0 +1,54 @@
+{
+  "name": "kieselstein-addon",
+  "displayName": "Kieselstein-Addon-Entwicklung",
+  "description": "Kieselstein-Addons anlegen, bauen, testen und in den Test-Addon-Server laden – mit dem Basiskit.",
+  "version": "0.1.0",
+  "publisher": "freudenthaler",
+  "license": "UNLICENSED",
+  "repository": { "type": "git", "url": "ssh://git@git.freudenthaler.rocks:2222/freudenthaler/kieselstein-addon-basiskit.git" },
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": ["workspaceContains:**/basis/src/main/java/at/freudenthaler/kieselstein/addon/basis/Kieselstein.java"],
+  "contributes": {
+    "commands": [
+      { "command": "kieselsteinAddon.anlegen", "title": "Neues Addon anlegen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.inDenTest", "title": "Addon bauen und in den Test laden", "category": "Kieselstein", "icon": "$(cloud-upload)" },
+      { "command": "kieselsteinAddon.testen", "title": "Tests des Addons ausführen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.oeffnen", "title": "Addon im Browser öffnen", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.freigabeOeffnen", "title": "Freigabe öffnen (Verwaltung der Test-Zentrale)", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.protokoll", "title": "Protokoll des Addon-Servers", "category": "Kieselstein" },
+      { "command": "kieselsteinAddon.fassade", "title": "Fassade nachschlagen", "category": "Kieselstein" }
+    ],
+    "menus": {
+      "editor/title": [
+        { "command": "kieselsteinAddon.inDenTest", "group": "navigation", "when": "resourceExtname == .xhtml || resourceExtname == .java" }
+      ]
+    },
+    "configuration": {
+      "title": "Kieselstein-Addon",
+      "properties": {
+        "kieselsteinAddon.addonsOrdner": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Der Ordner `addons/` des **Test**-Addon-Servers (neben `dist/` und `data/`), z. B. `~/.kieselstein/versionen/2.0.0/addons`."
+        },
+        "kieselsteinAddon.adresse": {
+          "type": "string",
+          "default": "http://localhost:8280",
+          "description": "Adresse des Test-Addon-Servers im Browser."
+        },
+        "kieselsteinAddon.clientLib": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`lib/` des Kieselstein-Clients der Zielversion (Schnittstellen zum Bauen und Nachschlagen), z. B. `~/.kieselstein/clients/2.0.0/lib`."
+        },
+        "kieselsteinAddon.jdk": {
+          "type": "string",
+          "default": "",
+          "description": "JDK 21 (leer: das von Kieselstein unter ~/.kieselstein/jdk)."
+        }
+      }
+    }
+  }
+}

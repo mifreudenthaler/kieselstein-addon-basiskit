@@ -20,7 +20,10 @@ import javax.crypto.spec.SecretKeySpec;
 import at.freudenthaler.kieselstein.addon.basis.Kieselstein;
 
 /**
- * Freigabe von Test nach Produktion.
+ * Ausrollen von Test nach Produktion („Freigabe").
+ *
+ * Freigeben heißt ausrollen: Das Paket wird in die Produktion gebracht,
+ * dort eingesetzt und gestartet.
  *
  * Die Test-Zentrale schickt das Paket, das im Test läuft – Byte für Byte –
  * an die Produktions-Zentrale. Beide stehen beim Kunden. Ausgewiesen wird
@@ -125,13 +128,13 @@ final class Freigabe {
                 .build();
         HttpResponse<String> antwort = client().send(anfrage, HttpResponse.BodyHandlers.ofString());
         boolean ok = antwort.statusCode() == 200;
-        AddonOrdner.verlauf(wer, ok ? "für Produktion freigegeben" : "Freigabe abgelehnt", name, version);
+        AddonOrdner.verlauf(wer, ok ? "in Produktion ausgerollt" : "Ausrollen gescheitert: " + antwort.body().replace('\t', ' '), name, version);
         return new Ergebnis(ok, antwort.body());
     }
 
-    /** Was in der Produktion läuft: Addon → „Version · Zustand". Leer, wenn nicht erreichbar. */
-    static Map<String, String> standProduktion() {
-        Map<String, String> stand = new LinkedHashMap<>();
+    /** Was in der Produktion läuft: Addon → {Version, Zustand, Prüfsumme}. Leer, wenn nicht erreichbar. */
+    static Map<String, String[]> standProduktion() {
+        Map<String, String[]> stand = new LinkedHashMap<>();
         if (produktion().isEmpty() || !eingerichtet()) {
             return stand;
         }
@@ -146,8 +149,8 @@ final class Freigabe {
             if (antwort.statusCode() == 200) {
                 for (String zeile : antwort.body().split("\n")) {
                     String[] t = zeile.split("\t");
-                    if (t.length >= 3) {
-                        stand.put(t[0], t[1] + " · " + t[2]);
+                    if (t.length >= 4) {
+                        stand.put(t[0], new String[] { t[1], t[2], t[3] });
                     }
                 }
             }

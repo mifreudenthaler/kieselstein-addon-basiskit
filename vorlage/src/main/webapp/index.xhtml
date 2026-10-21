@@ -1,0 +1,18 @@
+<ui:composition xmlns="http://www.w3.org/1999/xhtml"
+                xmlns:h="http://xmlns.jcp.org/jsf/html"
+                xmlns:ui="http://xmlns.jcp.org/jsf/facelets"
+                xmlns:p="http://primefaces.org/ui"
+                template="/basiskit/rahmen.xhtml">
+    <ui:param name="titel" value="__TITEL__"/>
+    <ui:define name="inhalt">
+        <div class="ks-inhalt">
+            <h1 class="ks-h1">__TITEL__</h1>
+            <ui:fragment rendered="#{not seite.darf}">
+                <p class="ks-unterzeile">Ihnen fehlt in Kieselstein das nötige Recht.</p>
+            </ui:fragment>
+            <ui:fragment rendered="#{seite.darf}">
+                <p class="ks-unterzeile">#{seite.begruessung}</p>
+            </ui:fragment>
+        </div>
+    </ui:define>
+</ui:composition>

@@ -6,7 +6,7 @@
                 template="/basiskit/rahmen.xhtml">
     <ui:param name="titel" value="Verwaltung"/>
     <ui:define name="inhalt">
-        <div class="ks-inhalt breit">
+        <div class="ks-inhalt">
             <ui:fragment rendered="#{not verwaltung.darf}">
                 <h1 class="ks-h1">Verwaltung</h1>
                 <p class="ks-unterzeile">Dafür fehlt Ihnen in Kieselstein das Administrationsrecht (LP_SYSTEM_CUD).</p>
@@ -15,72 +15,240 @@
             <ui:fragment rendered="#{verwaltung.darf}">
                 <h1 class="ks-h1">Verwaltung</h1>
                 <p class="ks-unterzeile">
-                    Stufe #{verwaltung.stufe}
-                    <h:outputText rendered="#{verwaltung.freigabeMoeglich}" value=" · Freigabe an #{verwaltung.produktionsAdresse}#{verwaltung.produktionErreichbar ? '' : ' (nicht erreichbar)'}"/>
-                    <h:outputText rendered="#{verwaltung.test and not verwaltung.freigabeMoeglich}" value=" · Freigabe nicht eingerichtet"/>
+                    Addon-Server <strong>#{verwaltung.stufe}</strong> · Kieselstein #{verwaltung.kieselstein}
+                    <h:outputText rendered="#{verwaltung.ausrollenEingerichtet}"
+                                  value=" · Produktion #{verwaltung.produktionsAdresse}#{verwaltung.produktionErreichbar ? '' : ' – nicht erreichbar'}"/>
                 </p>
 
                 <h:form id="f">
                     <p:messages id="meldung" closable="true"/>
-                    <p:confirmDialog global="true" showEffect="fade" hideEffect="fade" responsive="true">
+                    <p:confirmDialog global="true" responsive="true">
                         <p:commandButton value="Ja" type="button" styleClass="ui-confirmdialog-yes"/>
-                        <p:commandButton value="Nein" type="button" styleClass="ui-confirmdialog-no ui-button-flat"/>
+                        <p:commandButton value="Abbrechen" type="button" styleClass="ui-confirmdialog-no ui-button-flat"/>
                     </p:confirmDialog>
 
-                    <p:dataTable id="addons" value="#{verwaltung.addons}" var="z" size="small" emptyMessage="Keine Addons installiert">
-                        <p:column headerText="Addon">
-                            <strong>#{z.titel}</strong>
-                            <div style="color:var(--ks-grau);font-size:.8rem">#{z.name}.war · #{z.geaendert}</div>
-                        </p:column>
-                        <p:column headerText="Version" style="width:7rem" styleClass="ks-zahl">#{z.version}</p:column>
-                        <p:column headerText="Zustand" style="width:9rem">
-                            <span class="ks-status #{z.laeuft ? 'ks-status-erledigt' : (z.abgeschaltet ? 'ks-status-angelegt' : 'ks-status-gestoppt')}">#{z.zustand}</span>
-                        </p:column>
-                        <p:column headerText="In Produktion" style="width:12rem" rendered="#{verwaltung.freigabeMoeglich}">
-                            #{z.produktion}
-                        </p:column>
-                        <p:column headerText="" style="width:30rem">
-                            <p:commandButton value="Neu starten" action="#{verwaltung.neuStarten(z.name)}" update="@form" styleClass="ui-button-outlined" style="margin-right:.3rem"/>
-                            <p:commandButton value="Abschalten" action="#{verwaltung.abschalten(z.name)}" update="@form" styleClass="ui-button-outlined" style="margin-right:.3rem"
-                                             rendered="#{not z.zentrale and not z.abgeschaltet}">
-                                <p:confirm header="Abschalten" message="#{z.titel} abschalten? Es ist dann für niemanden mehr erreichbar."/>
-                            </p:commandButton>
-                            <p:commandButton value="Einschalten" action="#{verwaltung.einschalten(z.name)}" update="@form" style="margin-right:.3rem"
-                                             rendered="#{z.abgeschaltet}"/>
-                            <p:commandButton value="Einstellungen" action="#{verwaltung.einstellungenOeffnen(z.name)}" update=":f:einst" oncomplete="PF('einstDlg').show()"
-                                             styleClass="ui-button-outlined" style="margin-right:.3rem" rendered="#{not z.zentrale}"/>
-                            <p:commandButton value="Für Produktion freigeben" action="#{verwaltung.freigeben(z.name)}" update="@form"
-                                             rendered="#{verwaltung.freigabeMoeglich and z.laeuft and not z.zentrale}"
-                                             style="background:var(--ks-orange);border-color:var(--ks-orange);color:var(--ks-text)">
-                                <p:confirm header="Für Produktion freigeben"
-                                           message="#{z.titel} #{z.version} ist getestet und geht jetzt in die Produktion (dort läuft: #{z.produktion}). Freigeben?"/>
-                            </p:commandButton>
-                            <p:commandButton value="Zurück auf #{z.vorigeVersion}" action="#{verwaltung.zurueck(z.name, z.archiv[0])}" update="@form"
-                                             styleClass="ui-button-outlined" rendered="#{not verwaltung.test and not empty z.archiv}">
-                                <p:confirm header="Zurück auf die vorige Version"
-                                           message="#{z.titel} auf #{z.archiv[0]} zurücksetzen? Die laufende Version kommt ins Archiv."/>
-                            </p:commandButton>
-                        </p:column>
-                    </p:dataTable>
+                    <p:tabView id="reiter">
+                        <!-- ============ Addons ============ -->
+                        <p:tab title="Addons">
+                            <div class="ks-addonliste">
+                                <ui:repeat value="#{verwaltung.addons}" var="z">
+                                    <div class="ks-addon">
+                                        <div class="ks-addon-kopf">
+                                            <div>
+                                                <div class="ks-addon-titel">#{z.titel}</div>
+                                                <div class="ks-klein">#{z.name}.war · Version #{z.version} · #{z.geaendert} · Prüfsumme #{z.pruefsumme}</div>
+                                            </div>
+                                            <span class="#{z.zustandKlasse}">#{z.zustand}</span>
+                                        </div>
 
-                    <h2 style="font-size:1.1rem;margin:2.5rem 0 .6rem;color:var(--ks-petrol-dunkel)">Verlauf</h2>
-                    <p:dataTable value="#{verwaltung.verlauf}" var="v" size="small" emptyMessage="Noch nichts geschehen">
-                        <p:column headerText="Zeit" style="width:11rem" styleClass="ks-datum">#{v[0].replace('T', ' ')}</p:column>
-                        <p:column headerText="Wer" style="width:9rem">#{v[1]}</p:column>
-                        <p:column headerText="Was">#{v[2]}</p:column>
-                        <p:column headerText="Addon" style="width:10rem">#{v[3]}</p:column>
-                        <p:column headerText="Version" style="width:7rem" styleClass="ks-zahl">#{v[4]}</p:column>
-                    </p:dataTable>
+                                        <div class="ks-addon-mitte">
+                                            <div class="ks-kennzahl">
+                                                <div class="wert">#{z.anfragen}</div><div class="name">Anfragen (1 h)</div>
+                                            </div>
+                                            <div class="ks-kennzahl">
+                                                <div class="wert">#{z.schnittMs} ms</div><div class="name">Ø Dauer</div>
+                                            </div>
+                                            <div class="ks-kennzahl">
+                                                <div class="wert #{z.fehler gt 0 ? 'ks-rot' : ''}">#{z.fehler}</div><div class="name">Fehler (1 h)</div>
+                                            </div>
+                                            <svg class="ks-linie" viewBox="0 0 120 28" preserveAspectRatio="none" aria-label="Anfragen der letzten Stunde">
+                                                <polyline points="#{z.linie}" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                                            </svg>
+                                            <ui:fragment rendered="#{z.mitProduktion}">
+                                                <div class="ks-vergleich #{z.gleichWieProduktion ? 'gleich' : 'anders'}">
+                                                    <div class="name">Produktion</div>
+                                                    <div class="wert">#{z.vergleich}</div>
+                                                </div>
+                                            </ui:fragment>
+                                        </div>
 
+                                        <div class="ks-addon-fuss">
+                                            <p:commandButton value="In Produktion ausrollen …" rendered="#{z.ausrollbar}"
+                                                             action="#{verwaltung.ausrollenVorbereiten(z.name)}" update=":f:ausrollenDlg"
+                                                             oncomplete="PF('ausrollenDlg').show()" styleClass="ks-haupt"/>
+                                            <p:commandButton value="Neu starten" action="#{verwaltung.neuStarten(z.name)}" update="@form"
+                                                             styleClass="ui-button-outlined">
+                                                <p:confirm header="Neu starten" message="#{z.titel} neu starten? Wer es gerade benutzt, muss die Seite neu laden."/>
+                                            </p:commandButton>
+                                            <p:commandButton value="Abschalten" action="#{verwaltung.abschalten(z.name)}" update="@form"
+                                                             styleClass="ui-button-outlined" rendered="#{not z.zentrale and not z.abgeschaltet}">
+                                                <p:confirm header="Abschalten" message="#{z.titel} abschalten? Es ist dann für niemanden mehr erreichbar, bis es wieder eingeschaltet wird."/>
+                                            </p:commandButton>
+                                            <p:commandButton value="Einschalten" action="#{verwaltung.einschalten(z.name)}" update="@form"
+                                                             rendered="#{z.abgeschaltet}"/>
+                                            <p:commandButton value="Einstellungen" action="#{verwaltung.einstellungenOeffnen(z.name)}" update=":f:einst"
+                                                             oncomplete="PF('einstDlg').show()" styleClass="ui-button-outlined" rendered="#{not z.zentrale}"/>
+                                            <p:commandButton value="Zurück auf #{z.vorigeVersion}" rendered="#{not verwaltung.test and z.vorigeVersion ne null}"
+                                                             action="#{verwaltung.zurueck(z.name, z.vorigeDatei)}" update="@form" styleClass="ui-button-outlined">
+                                                <p:confirm header="Zurück auf #{z.vorigeVersion}"
+                                                           message="#{z.titel} auf Version #{z.vorigeVersion} zurücksetzen? Die laufende Version #{z.version} kommt ins Archiv."/>
+                                            </p:commandButton>
+                                        </div>
+                                    </div>
+                                </ui:repeat>
+                            </div>
+                        </p:tab>
+
+                        <!-- ============ Ressourcen ============ -->
+                        <p:tab title="Ressourcen">
+                            <div class="ks-leiste">
+                                <p:selectOneButton value="#{ressourcen.zeitraum}">
+                                    <f:selectItem itemLabel="Letzte Stunde" itemValue="60"/>
+                                    <f:selectItem itemLabel="Letzte 24 Stunden" itemValue="1440"/>
+                                    <p:ajax update="ressourcenTab"/>
+                                </p:selectOneButton>
+                            </div>
+                            <h:panelGroup id="ressourcenTab" layout="block">
+                                <p:dataTable value="#{ressourcen.zeilen}" var="r" size="small" emptyMessage="Noch keine Messwerte">
+                                    <p:column headerText="Addon">
+                                        <strong>#{r.titel}</strong>
+                                        <div class="ks-klein">#{r.ursache}</div>
+                                    </p:column>
+                                    <p:column headerText="Anfragen" styleClass="ks-zahl" style="width:6rem">#{r.anfragen}</p:column>
+                                    <p:column headerText="Fehler" styleClass="ks-zahl" style="width:6rem">
+                                        <h:outputText value="#{r.fehler}" styleClass="#{r.fehler gt 0 ? 'ks-rot' : ''}"/>
+                                        <h:panelGroup rendered="#{r.abgewiesen gt 0}" layout="block" styleClass="ks-klein">#{r.abgewiesen} abgewiesen</h:panelGroup>
+                                    </p:column>
+                                    <p:column headerText="Ø Dauer – davon Kieselstein" style="width:16rem">
+                                        <div class="ks-balken" title="davon Kieselstein #{r.schnittKieselsteinMs} ms, eigene Zeit #{r.schnittEigenMs} ms">
+                                            <span class="ks" style="width:#{r.balkenKieselstein}%"></span>
+                                        </div>
+                                        <div class="ks-klein">#{r.schnittMs} ms · Kieselstein #{r.schnittKieselsteinMs} · Addon #{r.schnittEigenMs} · max #{r.maxMs}</div>
+                                    </p:column>
+                                    <p:column headerText="Rechenzeit" styleClass="ks-zahl" style="width:8rem">#{r.cpu}<div class="ks-klein">#{r.anteilCpu} % aller Addons</div></p:column>
+                                    <p:column headerText="Speicher angelegt" styleClass="ks-zahl" style="width:10rem">#{r.speicher}<div class="ks-klein">#{r.anteilSpeicher} % · #{r.speicherJeAnfrage} je Anfrage</div></p:column>
+                                    <p:column headerText="Anfragen im Verlauf" style="width:9rem">
+                                        <svg class="ks-linie" viewBox="0 0 120 28" preserveAspectRatio="none"><polyline points="#{r.linie}" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                                    </p:column>
+                                </p:dataTable>
+
+                                <div class="ks-zweispaltig">
+                                    <div>
+                                        <h2 class="ks-h2">Addon-Server</h2>
+                                        <dl class="ks-angaben" style="margin-top:0">
+                                            <ui:repeat value="#{ressourcen.server.entrySet().toArray()}" var="e">
+                                                <dt>#{e.key}</dt><dd>#{e.value}</dd>
+                                            </ui:repeat>
+                                        </dl>
+                                    </div>
+                                    <div>
+                                        <h2 class="ks-h2">Speicheraufnahme</h2>
+                                        <p class="ks-klein" style="margin-top:0">Was gerade im Speicher liegt, nach Herkunft. Der Addon-Server räumt dafür einmal den Speicher auf – kurz spürbar.</p>
+                                        <p:commandButton value="Jetzt aufnehmen" action="#{ressourcen.aufnehmen}" update="ressourcenTab :f:meldung" styleClass="ui-button-outlined">
+                                            <p:confirm header="Speicheraufnahme" message="Der Addon-Server räumt dafür einmal den Speicher auf und steht dabei kurz still. Jetzt aufnehmen?"/>
+                                        </p:commandButton>
+                                        <p:dataTable value="#{ressourcen.aufnahme}" var="a" size="small" rendered="#{ressourcen.aufnahme ne null}" style="margin-top:.8rem">
+                                            <f:facet name="header">Aufnahme #{ressourcen.aufnahmeZeit}</f:facet>
+                                            <p:column headerText="Herkunft">#{a.gruppe}</p:column>
+                                            <p:column headerText="Objekte" styleClass="ks-zahl" style="width:7rem">#{a.anzahl}</p:column>
+                                            <p:column headerText="Größe" styleClass="ks-zahl" style="width:6rem">#{a.megabyte}</p:column>
+                                            <p:column headerText="Anteil" styleClass="ks-zahl" style="width:4rem">#{a.anteil} %</p:column>
+                                        </p:dataTable>
+                                    </div>
+                                </div>
+
+                                <h2 class="ks-h2">Langsamste Anfragen</h2>
+                                <p:dataTable value="#{ressourcen.langsam}" var="l" size="small" emptyMessage="Keine">
+                                    <p:column headerText="Zeit" style="width:8rem" styleClass="ks-datum">#{l[0]}</p:column>
+                                    <p:column headerText="Addon" style="width:9rem">#{l[1]}</p:column>
+                                    <p:column headerText="Dauer" styleClass="ks-zahl" style="width:6rem">#{l[2]} ms</p:column>
+                                    <p:column headerText="Kieselstein" styleClass="ks-zahl" style="width:6rem">#{l[3]} ms</p:column>
+                                    <p:column headerText="Speicher" styleClass="ks-zahl" style="width:5rem">#{l[4]} MB</p:column>
+                                    <p:column headerText="Anfrage">#{l[5]}</p:column>
+                                    <p:column headerText="Benutzer" style="width:7rem">#{l[6]}</p:column>
+                                </p:dataTable>
+                            </h:panelGroup>
+                        </p:tab>
+
+                        <!-- ============ Protokolle ============ -->
+                        <p:tab title="Protokolle">
+                            <div class="ks-leiste">
+                                <p:selectOneMenu value="#{protokolle.addon}">
+                                    <f:selectItem itemLabel="Alle Quellen" itemValue=""/>
+                                    <f:selectItems value="#{protokolle.quellen}" var="q" itemLabel="#{q eq 'server' ? 'Addon-Server (WildFly)' : q}" itemValue="#{q}"/>
+                                    <p:ajax update="protokollTab"/>
+                                </p:selectOneMenu>
+                                <p:selectOneButton value="#{protokolle.stufe}">
+                                    <f:selectItem itemLabel="Alles" itemValue=""/>
+                                    <f:selectItem itemLabel="Warnungen und Fehler" itemValue="WARNUNG"/>
+                                    <f:selectItem itemLabel="Nur Fehler" itemValue="FEHLER"/>
+                                    <p:ajax update="protokollTab"/>
+                                </p:selectOneButton>
+                                <p:inputText value="#{protokolle.suche}" placeholder="Suchen …">
+                                    <p:ajax event="keyup" delay="400" update="protokollTab"/>
+                                </p:inputText>
+                                <p:commandButton value="Aktualisieren" update="protokollTab" styleClass="ui-button-outlined"/>
+                            </div>
+                            <h:panelGroup id="protokollTab" layout="block">
+                                <p:dataTable value="#{protokolle.eintraege}" var="e" rowKey="#{e.schluessel}" size="small" emptyMessage="Keine Einträge"
+                                             paginator="true" rows="50" paginatorPosition="bottom" paginatorAlwaysVisible="false">
+                                    <p:column style="width:2rem"><p:rowToggler rendered="#{e.mitAusnahme}"/></p:column>
+                                    <p:column headerText="Zeit" style="width:10rem" styleClass="ks-datum">#{e.zeit}</p:column>
+                                    <p:column headerText="Stufe" style="width:6.5rem"><span class="#{e.stufeKlasse}">#{e.stufe}</span></p:column>
+                                    <p:column headerText="Quelle" style="width:8rem">#{e.quelle}</p:column>
+                                    <p:column headerText="Meldung">
+                                        #{e.text}
+                                        <div class="ks-klein">#{e.benutzer}#{not empty e.benutzer and not empty e.anfrage ? ' · ' : ''}#{e.anfrage}</div>
+                                    </p:column>
+                                    <p:rowExpansion>
+                                        <pre class="ks-ausnahme">#{e.ausnahme}</pre>
+                                    </p:rowExpansion>
+                                </p:dataTable>
+                            </h:panelGroup>
+                        </p:tab>
+
+                        <!-- ============ Verlauf ============ -->
+                        <p:tab title="Verlauf">
+                            <p:dataTable value="#{verwaltung.verlauf}" var="v" size="small" emptyMessage="Noch nichts geschehen">
+                                <p:column headerText="Zeit" style="width:10rem" styleClass="ks-datum">#{v[0].replace('T', ' ')}</p:column>
+                                <p:column headerText="Wer" style="width:8rem">#{v[1]}</p:column>
+                                <p:column headerText="Was">#{v[2]}</p:column>
+                                <p:column headerText="Addon" style="width:9rem">#{v[3]}</p:column>
+                                <p:column headerText="Version" style="width:7rem" styleClass="ks-zahl">#{v[4]}</p:column>
+                            </p:dataTable>
+                        </p:tab>
+                    </p:tabView>
+
+                    <!-- ============ Dialog: In Produktion ausrollen ============ -->
+                    <p:dialog id="ausrollenDlg" widgetVar="ausrollenDlg" header="In Produktion ausrollen" modal="true" width="620" resizable="false">
+                        <h:panelGroup rendered="#{verwaltung.ausrollen ne null}" layout="block">
+                            <p style="margin-top:0">
+                                <strong>#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version}</strong> geht jetzt in die Produktion. Das passiert:
+                            </p>
+                            <ol class="ks-ablauf">
+                                <li>Das Paket, das hier im Test läuft, wird unverändert an die Produktion übergeben
+                                    (#{verwaltung.produktionsAdresse}, Prüfsumme #{verwaltung.ausrollen.pruefsumme}).</li>
+                                <li>Die Produktion legt ihre laufende Version
+                                    (#{verwaltung.ausrollen.inProduktion ? verwaltung.ausrollen.produktionVersion : 'keine'}) ins Archiv
+                                    und setzt die neue ein.</li>
+                                <li>Sie startet das Addon und prüft, ob es läuft. Startet es nicht, läuft von selbst wieder die vorige Version.</li>
+                            </ol>
+                            <p class="ks-klein">Kieselstein selbst und die anderen Addons laufen dabei weiter. Wer das Addon gerade benutzt, muss die Seite neu laden.</p>
+                            <div style="display:flex;align-items:center;gap:.5rem;margin:1rem 0">
+                                <p:selectBooleanCheckbox id="geprueft" value="#{verwaltung.geprueft}"/>
+                                <p:outputLabel for="geprueft" value="#{verwaltung.ausrollen.titel} #{verwaltung.ausrollen.version} ist im Test geprüft."/>
+                            </div>
+                        </h:panelGroup>
+                        <f:facet name="footer">
+                            <p:commandButton value="Abbrechen" type="button" onclick="PF('ausrollenDlg').hide()" styleClass="ui-button-flat"/>
+                            <p:commandButton value="Jetzt ausrollen" action="#{verwaltung.ausrollenBestaetigt}" process="@this ausrollenDlg" update="@form"
+                                             styleClass="ks-haupt" onstart="PF('ausrollenWarte').show()" oncomplete="PF('ausrollenWarte').hide(); PF('ausrollenDlg').hide()"/>
+                        </f:facet>
+                    </p:dialog>
+                    <p:dialog widgetVar="ausrollenWarte" modal="true" closable="false" resizable="false" showHeader="false" width="380">
+                        <div style="padding:1rem;text-align:center">Wird ausgerollt und in der Produktion gestartet …</div>
+                    </p:dialog>
+
+                    <!-- ============ Dialog: Einstellungen ============ -->
                     <p:dialog id="einst" widgetVar="einstDlg" header="Einstellungen #{verwaltung.gewaehlt}" modal="true" width="640">
-                        <p class="ks-unterzeile">Eine Einstellung je Zeile: <code>schluessel=wert</code>. Gilt nur für diese Installation (#{verwaltung.stufe}).</p>
+                        <p class="ks-klein" style="margin-top:0">Eine Einstellung je Zeile: <code>schluessel=wert</code>. Gilt nur für diese Installation (#{verwaltung.stufe}).
+                            Vorgegeben: <code>max_gleichzeitige_anfragen=25</code>.</p>
                         <p:inputTextarea value="#{verwaltung.einstellungenText}" rows="14" style="width:100%;font-family:monospace" autoResize="false"/>
                         <f:facet name="footer">
-                            <p:commandButton value="Sichern" action="#{verwaltung.einstellungenSichern}" update=":f:meldung" oncomplete="PF('einstDlg').hide()"/>
+                            <p:commandButton value="Sichern" action="#{verwaltung.einstellungenSichern}" process="@this einst" update=":f:meldung" oncomplete="PF('einstDlg').hide()"/>
                         </f:facet>
                     </p:dialog>
                 </h:form>
-
             </ui:fragment>
         </div>
     </ui:define>

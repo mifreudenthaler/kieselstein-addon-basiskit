@@ -20,6 +20,7 @@ import org.primefaces.model.SortMeta;
 import com.lp.server.util.fastlanereader.service.query.QueryParameters;
 
 import at.freudenthaler.kieselstein.addon.basis.Liste;
+import at.freudenthaler.kieselstein.addon.basis.Protokoll;
 import at.freudenthaler.kieselstein.addon.basis.Sitzung;
 
 /**
@@ -63,6 +64,7 @@ public class Auftragsliste implements Serializable {
         if (liste == null) {
             liste = new Liste(QueryParameters.UC_ID_AUFTRAG, sitzung.getClient());
             liste.oeffnen();
+            Protokoll.info("Auftragsliste geöffnet: " + liste.getAnzahl() + " Aufträge");
         }
         return liste;
     }

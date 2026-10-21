@@ -43,15 +43,31 @@ public final class Kieselstein {
      * Ein Aufruf in die Fachlogik. Die Fassaden werfen geprüfte Ausnahmen
      * (RemoteException, Kieselsteins eigene Fehler); hier werden sie zu einer
      * ungeprüften {@link KieselsteinFehler} mit Kieselsteins Begründung.
-     * Hier misst die Basisschicht später auch die Wartezeit auf Kieselstein.
+     * Die Wartezeit zählt in die Messung des Addons (davon Kieselstein).
      */
     public static <T> T rufe(Aufruf<T> aufruf) {
+        long t0 = System.nanoTime();
         try {
             return aufruf.ausfuehren();
         } catch (RuntimeException e) {
+            Protokoll.warnung("Kieselstein-Aufruf gescheitert: " + e);
             throw e;
         } catch (Exception e) {
+            Protokoll.warnung("Kieselstein-Aufruf gescheitert: " + e);
             throw new KieselsteinFehler(e);
+        } finally {
+            Messung.kieselstein(System.nanoTime() - t0);
+        }
+    }
+
+    /** Antwortet Kieselstein? Gibt die Antwortzeit in ms zurück, -1 wenn nicht. */
+    public static long ping() {
+        long t0 = System.nanoTime();
+        try {
+            fassade(com.lp.server.system.service.SystemFac.class).getServerPathSeperator();
+            return (System.nanoTime() - t0) / 1_000_000;
+        } catch (Exception e) {
+            return -1;
         }
     }
 

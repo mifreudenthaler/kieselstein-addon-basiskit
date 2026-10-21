@@ -77,3 +77,53 @@ html body .ui-button.ui-button-outlined:enabled:hover { background: var(--ks-hel
 html body .ui-button.ui-button-flat { background: transparent; color: var(--ks-petrol); border-color: transparent; }
 html body .ui-messages .ui-messages-info { background: #dff3e4; border-color: #9fd3ad; color: #1e6b34; }
 html body .ui-messages .ui-messages-error { background: #f6dede; border-color: #e3a5a5; color: #8b1d1d; }
+
+/* --- Verwaltung ------------------------------------------------------- */
+.ks-klein { color: var(--ks-grau); font-size: .8rem; }
+.ks-rot { color: #b3261e; }
+.ks-h2 { font-size: 1.05rem; font-weight: 600; color: var(--ks-petrol-dunkel); margin: 2rem 0 .6rem; }
+.ks-leiste { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-bottom: 1rem; }
+.ks-zweispaltig { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+@media (max-width: 900px) { .ks-zweispaltig { grid-template-columns: 1fr; } }
+
+.ks-addonliste { display: flex; flex-direction: column; gap: 1rem; }
+.ks-addon { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px rgba(0,60,80,.12); }
+.ks-addon-kopf { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; padding: 1rem 1.25rem .5rem; }
+.ks-addon-titel { font-size: 1.1rem; font-weight: 600; color: var(--ks-petrol-dunkel); }
+.ks-addon-mitte { display: flex; flex-wrap: wrap; align-items: center; gap: 2rem; padding: .5rem 1.25rem 1rem; }
+.ks-kennzahl .wert { font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ks-kennzahl .name { color: var(--ks-grau); font-size: .75rem; }
+.ks-linie { width: 120px; height: 28px; color: var(--ks-petrol); }
+.ks-vergleich { margin-left: auto; padding: .45rem .8rem; border-radius: 4px; background: var(--ks-flaeche); }
+.ks-vergleich .name { color: var(--ks-grau); font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
+.ks-vergleich .wert { font-weight: 600; }
+.ks-vergleich.anders { background: #fdf0d5; }
+.ks-vergleich.gleich .wert { color: #1e6b34; }
+.ks-addon-fuss { display: flex; flex-wrap: wrap; gap: .5rem; padding: .75rem 1.25rem; border-top: 1px solid #e6eef2; background: #fafcfd; border-radius: 0 0 6px 6px; }
+html body .ui-button.ks-haupt, html body .ui-button.ks-haupt:enabled:hover { background: var(--ks-orange); border-color: var(--ks-orange); color: var(--ks-text); font-weight: 600; }
+html body .ui-button.ks-haupt:enabled:hover { filter: brightness(.95); }
+
+.ks-balken { height: 6px; background: var(--ks-mittelblau); border-radius: 3px; overflow: hidden; margin: .2rem 0 .3rem; }
+.ks-balken .ks { display: block; height: 100%; background: var(--ks-petrol); }
+.ks-ausnahme { white-space: pre-wrap; font-size: .75rem; background: var(--ks-flaeche); padding: .75rem; margin: 0; max-height: 24rem; overflow: auto; }
+.ks-ablauf { padding-left: 1.2rem; line-height: 1.5; }
+.ks-ablauf li { margin-bottom: .35rem; }
+
+.ks-stufe-fehler { background: #f6dede; color: #8b1d1d; }
+.ks-stufe-warnung { background: #fdf0d5; color: #8a5a00; }
+.ks-stufe-info { background: #eceff1; color: #455a64; }
+
+/* Reiter in Petrol */
+html body .ui-tabs .ui-tabs-nav li.ui-state-active a { color: var(--ks-petrol); border-color: var(--ks-petrol); }
+html body .ui-tabs .ui-tabs-nav li a { color: var(--ks-grau); }
+html body .ui-tabs .ui-tabs-panels { background: transparent; }
+html body .ui-selectonebutton .ui-button.ui-state-active { background: var(--ks-petrol); border-color: var(--ks-petrol); color: #fff; }
+html body .ui-selectonebutton .ui-button:not(.ui-state-active) { background: #fff; color: var(--ks-text); border-color: var(--ks-mittelblau); }
+html body .ui-chkbox .ui-chkbox-box.ui-state-active { background: var(--ks-petrol); border-color: var(--ks-petrol); }
+html body .ui-paginator .ui-paginator-page.ui-state-active { background: var(--ks-hellblau); color: var(--ks-petrol-dunkel); }
+html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active a,
+html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active .ui-tabs-title { color: var(--ks-petrol) !important; }
+html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active { border-color: var(--ks-petrol) !important; }
+html body .ui-tabs .ui-tabs-nav li.ui-tabs-header a:focus { box-shadow: none !important; }
+html body .ui-tabs .ui-tabs-nav .ui-tabs-actions, html body .ui-tabs .ui-tabs-nav li.ui-tabs-header.ui-state-active::after { background: var(--ks-petrol); }
+html body .ui-messages .ui-messages-info .ui-messages-info-icon, html body .ui-messages .ui-messages-info .ui-messages-close { color: #1e6b34; }
