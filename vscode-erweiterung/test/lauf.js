@@ -12,7 +12,7 @@ const { runTests } = require(process.env.TEST_ELECTRON || '@vscode/test-electron
   fs.copyFileSync(einstellungen, path.join(benutzer, 'User', 'settings.json'));
   await runTests({
     extensionDevelopmentPath: path.resolve(__dirname, '..'),
-    extensionTestsPath: path.resolve(__dirname, 'suite.js'),
+    extensionTestsPath: path.resolve(__dirname, process.env.TEST_SUITE || 'suite.js'),
     launchArgs: [projekt, '--user-data-dir', benutzer, '--disable-extensions', '--disable-workspace-trust'],
   });
 })().catch((e) => { console.error('Testlauf gescheitert:', e.message); process.exit(1); });
