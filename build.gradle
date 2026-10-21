@@ -9,7 +9,7 @@ ext {
 }
 
 // Version des Basiskits (Addon-Server, Zentrale, Basisschicht) – steht im Paket und in der Zentrale.
-ext.basiskitVersion = '0.2.2'
+ext.basiskitVersion = '0.2.3'
 
 subprojects {
     apply plugin: 'java'

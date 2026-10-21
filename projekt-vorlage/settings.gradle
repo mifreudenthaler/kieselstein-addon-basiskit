@@ -1,0 +1,4 @@
+// Ein Addon-Projekt für Kieselstein – angelegt von der Kieselstein-Addon-Erweiterung.
+// Neue Addons trägt die Erweiterung hier selbst ein.
+rootProject.name = 'kieselstein-addons'
+include 'basis'

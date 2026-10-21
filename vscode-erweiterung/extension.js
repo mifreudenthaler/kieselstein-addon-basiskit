@@ -49,7 +49,7 @@ function wurzel(pflicht = true) {
     const r = w.projektWurzel(ordner.uri.fsPath);
     if (r) return r;
   }
-  if (pflicht) throw new Error('Kein Basiskit-Projekt im Arbeitsbereich (settings.gradle mit basis/).');
+  if (pflicht) throw new Error('Kein Addon-Projekt geöffnet – „Kieselstein: Neues Addon anlegen" legt eines an.');
   return null;
 }
 
@@ -307,22 +307,77 @@ async function addonWaehlen(frage) {
   return wahl?.addon;
 }
 
+/** Fragt Name, Titel und Beschreibung eines neuen Addons ab. */
+async function addonAngaben() {
+  const name = await vscode.window.showInputBox({
+    prompt: 'Name des Addons (wird Adresse und Ordner), z. B. lieferscheine',
+    validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
+  });
+  if (!name) return null;
+  const titel = await vscode.window.showInputBox({ prompt: 'Titel, wie er in der Zentrale steht', value: name.charAt(0).toUpperCase() + name.slice(1) });
+  if (!titel) return null;
+  const beschreibung = (await vscode.window.showInputBox({ prompt: 'Ein Satz, was das Addon tut' })) || '';
+  return { name, titel, beschreibung };
+}
+
+/**
+ * Ein Addon-Projekt anlegen: Basisschicht, Addon-Vorlage und Gradle aus der
+ * Erweiterung, die Kieselstein-Client-Bibliotheken vom Server der ersten Stufe.
+ * Gibt den Projektordner zurück.
+ */
+async function projektAnlegen(ordner, angaben) {
+  const vorlage = path.join(kontext.extensionPath, 'projekt');
+  if (!require('node:fs').existsSync(vorlage)) throw new Error('Projektvorlage fehlt in der Erweiterung.');
+  const fsx = require('node:fs');
+  if (fsx.existsSync(ordner) && fsx.readdirSync(ordner).filter((n) => !n.startsWith('.')).length) {
+    throw new Error(`${ordner} ist nicht leer – bitte einen leeren oder neuen Ordner wählen.`);
+  }
+  const erste = s.ersteStufe(serverListe());
+  if (!erste) throw new Error('Zuerst einen Server eintragen – von dort kommen die Kieselstein-Bibliotheken, gegen die gebaut wird.');
+  fsx.mkdirSync(ordner, { recursive: true });
+  fsx.cpSync(vorlage, ordner, { recursive: true });
+  fsx.chmodSync(path.join(ordner, 'gradlew'), 0o755);
+  ausgabe.appendLine(`Kieselstein-Bibliotheken von ${s.STUFEN_NAME[erste.stufe]} holen …`);
+  const lib = await s.clientBibliotheken(erste, path.join(ordner, '.kieselstein-client', 'lib'));
+  ausgabe.appendLine(`✔ ${lib.anzahl} Bibliotheken der Kieselstein-Version ${lib.version}`);
+  if (angaben) w.addonAnlegen(ordner, angaben.name, angaben.titel, angaben.beschreibung);
+  try {
+    require('node:child_process').execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: ordner });
+  } catch (e) {
+    // ohne Git weiter – das Projekt funktioniert trotzdem
+  }
+  return ordner;
+}
+
 async function addonAnlegen() {
   try {
-    const r = wurzel();
-    const name = await vscode.window.showInputBox({
-      prompt: 'Name des Addons (wird Adresse und Ordner), z. B. lieferscheine',
-      validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
-    });
-    if (!name) return;
-    const titel = await vscode.window.showInputBox({ prompt: 'Titel, wie er in der Zentrale steht', value: name });
-    if (!titel) return;
-    const beschreibung = (await vscode.window.showInputBox({ prompt: 'Ein Satz, was das Addon tut' })) || '';
-    const ordner = w.addonAnlegen(r, name, titel, beschreibung);
+    const r = wurzel(false);
+    if (!r) {
+      // Kein Addon-Projekt offen: eines anlegen, mit dem ersten Addon darin.
+      const wahl = await vscode.window.showInformationMessage(
+        'Hier ist noch kein Addon-Projekt geöffnet. Ein neues anlegen? Es enthält die Basisschicht, Ihr erstes Addon und die Kieselstein-Bibliotheken vom Server.',
+        { modal: true }, 'Projekt anlegen …');
+      if (!wahl) return null;
+      const ziel = await vscode.window.showOpenDialog({
+        canSelectFolders: true, canSelectFiles: false, canSelectMany: false,
+        openLabel: 'Hier anlegen', title: 'Ordner für das Addon-Projekt (leer oder neu)',
+      });
+      if (!ziel?.length) return null;
+      const angaben = await addonAngaben();
+      if (!angaben) return null;
+      const ordner = await mitFortschritt('Addon-Projekt anlegen', () => projektAnlegen(ziel[0].fsPath, angaben));
+      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(ordner), false);
+      return ordner;
+    }
+    const angaben = await addonAngaben();
+    if (!angaben) return null;
+    const ordner = w.addonAnlegen(r, angaben.name, angaben.titel, angaben.beschreibung);
     await vscode.window.showTextDocument(vscode.Uri.file(path.join(ordner, 'src/main/webapp/index.xhtml')));
-    vscode.window.showInformationMessage(`Addon „${titel}" angelegt.`);
+    vscode.window.showInformationMessage(`Addon „${angaben.titel}" angelegt – mit der Flamme live entwickeln.`);
+    return ordner;
   } catch (e) {
     fehler(e);
+    return null;
   }
 }
 
@@ -372,8 +427,8 @@ async function oeffnen() {
 
 async function fassadeNachschlagen() {
   try {
-    const lib = einstellung('clientLib');
-    if (!lib) throw new Error('Einstellung kieselsteinAddon.clientLib fehlt (lib/ des Kieselstein-Clients der Zielversion).');
+    const lib = einstellung('clientLib') || path.join(wurzel(), '.kieselstein-client', 'lib');
+    if (!require('node:fs').existsSync(lib)) throw new Error('Keine Kieselstein-Bibliotheken im Projekt (.kieselstein-client/lib).');
     const wahl = await vscode.window.showQuickPick(
       w.fassaden(lib).map((k) => ({ label: k.split('.').pop(), description: k })), { placeHolder: 'Fassade suchen, z. B. AuftragFac' });
     if (!wahl) return;
@@ -595,7 +650,7 @@ function activate(k) {
   setTimeout(() => liveWiederfinden().catch(() => {}), 3000);
 
   // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
-  return { server: s, werkzeug: w, formular: f, live: () => live, liveStarten, liveBeenden, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
+  return { server: s, werkzeug: w, formular: f, projektAnlegen, live: () => live, liveStarten, liveBeenden, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };
 }
 
 function deactivate() {}

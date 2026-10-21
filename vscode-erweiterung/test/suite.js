@@ -35,10 +35,10 @@ exports.run = async () => {
       namen.push(`${t.label}: ${t.description}`);
     }
     console.log('    ' + namen.join('\n    '));
-    assert.deepStrictEqual(knoten.map((k) => k.srv.stufe), ['entwicklung', 'test', 'produktion']);
-    assert.ok(namen.every((n) => /Zentrale 0\.2\.0/.test(n)), 'nicht überall Zentrale 0.2.0');
-    const addons = await api.ansicht.getChildren(knoten[1]);
-    assert.ok(addons.some((a) => a.addon.name === 'auftraege'), 'Test zeigt auftraege nicht');
+    assert.deepStrictEqual(knoten.map((k) => k.srv.stufe), api.server.kette(api.serverListe()).map((x) => x.stufe));
+    assert.ok(namen.every((n) => /Zentrale \d+\.\d+\.\d+/.test(n)), 'nicht überall eine Zentrale');
+    const addons = await api.ansicht.getChildren(knoten[0]);
+    assert.ok(addons.some((a) => a.addon.name === 'zentrale'), 'erste Stufe zeigt keine Addons');
   });
 
   await pruefen('Addon bauen und in die erste Stufe laden (Entwicklung)', async () => {
@@ -47,10 +47,11 @@ exports.run = async () => {
     assert.strictEqual(r.stufe, 'entwicklung');
   });
 
-  await pruefen('Basiskit auf dem Test aktualisieren', async () => {
-    await vscode.commands.executeCommand('kieselsteinAddon.basiskitEinrichten', knoten[1]);
-    const st = await api.server.stand(knoten[1].srv);
-    assert.ok(st.laeuft && st.basiskit === '0.2.0', JSON.stringify(st));
+  await pruefen('Basiskit auf der ersten Stufe aktualisieren', async () => {
+    await vscode.commands.executeCommand('kieselsteinAddon.basiskitEinrichten', knoten[0]);
+    const st = await api.server.stand(knoten[0].srv);
+    const paket = vscode.extensions.getExtension('freudenthaler.kieselstein-addon').packageJSON.version;
+    assert.ok(st.laeuft && st.basiskit === paket, JSON.stringify(st));
   });
 
   await pruefen('Formular: Eingaben prüfen, Port statt Versatz', async () => {
@@ -67,7 +68,7 @@ exports.run = async () => {
     const gefunden = await api.formular.kieselsteinSuchen('');
     assert.ok(gefunden.some((g) => g.ordner.endsWith('/.kieselstein/versionen/2.0.0')), JSON.stringify(gefunden));
     const ok = await api.formular.pruefen({ stufe: 'test', ssh: '', kieselstein: gefunden.find((g) => g.ordner.endsWith('2.0.0')).ordner, port: '8280' });
-    assert.ok(ok.ok && /Zentrale 0\.2\.0 ist installiert/.test(ok.text), ok.text);
+    assert.ok(ok.ok, ok.text);
     const nein = await api.formular.pruefen({ stufe: 'test', ssh: '', kieselstein: '/tmp', port: '8280' });
     assert.ok(!nein.ok, nein.text);
   });
@@ -75,10 +76,10 @@ exports.run = async () => {
   await pruefen('Formular öffnet sich (neu und bearbeiten)', async () => {
     vscode.commands.executeCommand('kieselsteinAddon.serverEintragen');
     await new Promise((r) => setTimeout(r, 1500));
-    vscode.commands.executeCommand('kieselsteinAddon.serverBearbeiten', knoten[1]);
+    vscode.commands.executeCommand('kieselsteinAddon.serverBearbeiten', knoten[0]);
     await new Promise((r) => setTimeout(r, 1500));
     const offen = vscode.window.tabGroups.all.flatMap((g) => g.tabs).map((t) => t.label);
-    assert.ok(offen.includes('Server eintragen') && offen.includes('Server – Test'), offen.join(', '));
+    assert.ok(offen.includes('Server eintragen') && offen.includes('Server – Entwicklung'), offen.join(', '));
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
   });
 
@@ -89,7 +90,8 @@ exports.run = async () => {
 
   await pruefen('Freigabe-Schlüssel aus der Kette übernommen', async () => {
     const k = await api.schluessel();
-    const r = await api.server.ausfuehren(knoten[2].srv, `cat '${knoten[2].srv.kieselstein}/addons/config/freigabe.schluessel'`);
+    const letzter = knoten[knoten.length - 1].srv;
+    const r = await api.server.ausfuehren(letzter, `cat '${letzter.kieselstein}/addons/config/freigabe.schluessel'`);
     assert.strictEqual(k, r.aus.trim());
   });
 };

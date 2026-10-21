@@ -249,11 +249,45 @@ async function inErsteStufeLaden(war, alle, { sekunden = 120, melde = () => {} }
   throw new Error(`${name} ist nach ${sekunden} s noch nicht gestartet`);
 }
 
+/**
+ * Die Kieselstein-Client-Bibliotheken der Version auf diesem Server in einen
+ * lokalen Ordner holen – aus dist/clients der Installation. Gegen sie wird gebaut.
+ */
+async function clientBibliotheken(server, zielOrdner) {
+  const ks = server.kieselstein.replace(/\/$/, '');
+  const r = await ausfuehren(server, `ls ${q(ks)}/dist/clients/kieselstein-client-*.tar.gz 2>/dev/null | head -1`);
+  const archiv = r.aus.trim();
+  if (!archiv) throw new Error(`Unter ${ks}/dist/clients liegt kein Kieselstein-Client.`);
+  fs.mkdirSync(zielOrdner, { recursive: true });
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ks-client-'));
+  try {
+    await new Promise((fertig, scheitern) => {
+      const quelle = server.ssh
+        ? spawn('ssh', ['-o', 'BatchMode=yes', server.ssh, `cat ${q(archiv)}`])
+        : spawn('cat', [archiv]);
+      const tar = spawn('tar', ['-xzf', '-', '-C', tmp, '--wildcards', '*/lib/*.jar']);
+      quelle.stdout.pipe(tar.stdin);
+      let fehler = '';
+      tar.stderr.on('data', (b) => { fehler += b; });
+      quelle.on('error', scheitern);
+      tar.on('error', scheitern);
+      tar.on('close', (code) => (code === 0 ? fertig() : scheitern(new Error(`Client-Bibliotheken nicht lesbar: ${fehler.trim()}`))));
+    });
+    const lib = fs.readdirSync(tmp).map((d) => path.join(tmp, d, 'lib')).find((d) => fs.existsSync(d));
+    if (!lib) throw new Error('Im Kieselstein-Client fehlt lib/.');
+    fs.rmSync(zielOrdner, { recursive: true, force: true });
+    fs.cpSync(lib, zielOrdner, { recursive: true });
+    return { ordner: zielOrdner, anzahl: fs.readdirSync(zielOrdner).length, version: path.basename(archiv).replace(/^kieselstein-client-|\.tar\.gz$/g, '') };
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
 function neuerSchluessel() {
   return crypto.randomBytes(32).toString('hex');
 }
 
 module.exports = {
   STUFEN, STUFEN_NAME, kette, ersteStufe, naechste, ausfuehren, stand, paket, einrichten,
-  starten, anhalten, inErsteStufeLaden, neuerSchluessel,
+  starten, anhalten, inErsteStufeLaden, neuerSchluessel, clientBibliotheken,
 };

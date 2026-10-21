@@ -2,7 +2,7 @@
   "name": "kieselstein-addon",
   "displayName": "Kieselstein-Addon-Entwicklung",
   "description": "Basiskit auf Test und Produktion einrichten, Kieselstein-Addons anlegen, bauen und in den Test laden.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "freudenthaler",
   "license": "SEE LICENSE IN README.md",
   "repository": { "type": "git", "url": "https://github.com/mifreudenthaler/kieselstein-addon-basiskit.git" },
@@ -25,7 +25,7 @@
     "viewsWelcome": [
       {
         "view": "kieselsteinAddon.server",
-        "contents": "Noch kein Server eingetragen. Standard sind ein Test- und ein Produktionsserver beim Kunden.\n[Server eintragen](command:kieselsteinAddon.serverEintragen)"
+        "contents": "Noch kein Server eingetragen. Standard sind ein Test- und ein Produktionsserver beim Kunden.\n[Server eintragen](command:kieselsteinAddon.serverEintragen)\nDanach ein Addon-Projekt anlegen:\n[Neues Addon anlegen](command:kieselsteinAddon.anlegen)"
       }
     ],
     "commands": [
@@ -92,7 +92,7 @@
         "kieselsteinAddon.clientLib": {
           "type": "string",
           "default": "",
-          "markdownDescription": "`lib/` des Kieselstein-Clients der Zielversion – zum Bauen und Nachschlagen, z. B. `~/.kieselstein/clients/2.0.0/lib`."
+          "markdownDescription": "Nur nötig, um von `.kieselstein-client/lib` im Addon-Projekt abzuweichen: `lib/` des Kieselstein-Clients der Zielversion."
         },
         "kieselsteinAddon.jdk": {
           "type": "string",
