@@ -1,10 +1,10 @@
 # Kieselstein-Addon-Entwicklung (VS Code)
 
-Seitenleiste **Kieselstein-Addons** (Symbol links): die Server der Kette mit dem Stand ihrer Zentrale.
+Für VS Code, Cursor und VSCodium. Seitenleiste **Kieselstein-Addons** (Symbol links): die Server der Kette mit dem Stand ihrer Zentrale.
 
 ## Beim Kunden einrichten
 
-1. VS Code installieren, diese Erweiterung installieren (`code --install-extension kieselstein-addon-<version>.vsix`).
+1. Editor installieren (VS Code, Cursor oder VSCodium), Erweiterung mit dem Befehl aus der Haupt-README installieren.
 2. **Server eintragen** – Standard: **Test** und **Produktion**, zusätzlich auf Wunsch **Entwicklung**.
    Je Server: SSH-Zugang (`benutzer@rechner`, leer = diese Maschine), Kieselstein-Ordner (mit `dist/` und `data/`),
    Port-Versatz (200 → 8280) und die Adresse der Zentrale.

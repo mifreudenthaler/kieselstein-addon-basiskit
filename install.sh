@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
-# Kieselstein-Addon-Erweiterung in VS Code installieren (oder aktualisieren).
+# Kieselstein-Addon-Erweiterung installieren oder aktualisieren – für VS Code, Cursor und VSCodium.
 #
 #   curl -fsSL https://raw.githubusercontent.com/mifreudenthaler/kieselstein-addon-basiskit/main/install.sh | bash
 #
-# Holt die neueste Erweiterung aus den GitHub-Releases und installiert sie mit
-# dem VS-Code-Befehl „code". In einem Terminal von VS Code Remote-SSH landet
-# sie damit auf dem Server, mit dem VS Code gerade verbunden ist.
+# Holt die neueste Erweiterung aus den GitHub-Releases und installiert sie in
+# jeden gefundenen Editor (code, cursor, codium). Nur einen bestimmten:
+# KS_EDITOR=cursor. In einem Terminal von Remote-SSH landet sie auf dem Server,
+# mit dem der Editor gerade verbunden ist.
 # Das Installationspaket für Addon-Server und Zentrale steckt in der Erweiterung.
 set -euo pipefail
 
 REPO=${KS_REPO:-mifreudenthaler/kieselstein-addon-basiskit}
 
-CODE=""
-for c in code code-insiders codium; do
-  if command -v "$c" >/dev/null 2>&1; then CODE=$c; break; fi
+EDITOREN=()
+for c in ${KS_EDITOR:-code cursor codium code-insiders}; do
+  command -v "$c" >/dev/null 2>&1 && EDITOREN+=("$c")
 done
-if [ -z "$CODE" ]; then
-  echo "VS Code wurde nicht gefunden (Befehl „code\")." >&2
-  echo "Bitte VS Code installieren: https://code.visualstudio.com/ – und dieses Skript erneut ausführen." >&2
+if [ ${#EDITOREN[@]} -eq 0 ]; then
+  echo "Kein Editor gefunden (code, cursor oder codium)." >&2
+  echo "Bitte VS Code (https://code.visualstudio.com/), Cursor (https://cursor.com/) oder VSCodium (https://vscodium.com/)" >&2
+  echo "installieren – und diese Zeile erneut ausführen." >&2
   exit 1
 fi
 
@@ -32,8 +34,11 @@ DATEI="$TMP/$(basename "$URL")"
 echo "Lade $(basename "$URL") …"
 curl -fsSL -o "$DATEI" "$URL"
 
-# KS_CODE_ARGS: zusätzliche Angaben für „code", z. B. ein eigener Erweiterungsordner zum Testen
-# shellcheck disable=SC2086
-"$CODE" ${KS_CODE_ARGS:-} --install-extension "$DATEI" --force
+for e in "${EDITOREN[@]}"; do
+  echo "Installiere in $e …"
+  # KS_CODE_ARGS: zusätzliche Angaben, z. B. ein eigener Erweiterungsordner zum Testen
+  # shellcheck disable=SC2086
+  "$e" ${KS_CODE_ARGS:-} --install-extension "$DATEI" --force
+done
 echo
-echo "Fertig. In VS Code links auf das Kieselstein-Symbol klicken und „Server eintragen\" wählen."
+echo "Fertig. Im Editor links auf das Kieselstein-Symbol klicken und „Server eintragen\" wählen."

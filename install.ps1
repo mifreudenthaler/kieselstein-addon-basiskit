@@ -1,20 +1,20 @@
-# Kieselstein-Addon-Erweiterung in VS Code installieren (oder aktualisieren) – Windows.
+# Kieselstein-Addon-Erweiterung installieren oder aktualisieren – Windows, für VS Code, Cursor und VSCodium.
 #
 #   irm https://raw.githubusercontent.com/mifreudenthaler/kieselstein-addon-basiskit/main/install.ps1 | iex
 #
-# Holt die neueste Erweiterung aus den GitHub-Releases und installiert sie mit
-# dem VS-Code-Befehl „code". Das Installationspaket für Addon-Server und
+# Holt die neueste Erweiterung aus den GitHub-Releases und installiert sie in
+# jeden gefundenen Editor (code, cursor, codium). Nur einen bestimmten:
+# $env:KS_EDITOR = 'cursor'. Das Installationspaket für Addon-Server und
 # Zentrale steckt in der Erweiterung.
 $ErrorActionPreference = 'Stop'
 $repo = if ($env:KS_REPO) { $env:KS_REPO } else { 'mifreudenthaler/kieselstein-addon-basiskit' }
+$kandidaten = if ($env:KS_EDITOR) { @($env:KS_EDITOR) } else { @('code', 'cursor', 'codium', 'code-insiders') }
 
-$code = $null
-foreach ($c in 'code', 'code-insiders', 'codium') {
-    if (Get-Command $c -ErrorAction SilentlyContinue) { $code = $c; break }
-}
-if (-not $code) {
-    Write-Host 'VS Code wurde nicht gefunden (Befehl "code").' -ForegroundColor Red
-    Write-Host 'Bitte VS Code installieren: https://code.visualstudio.com/ - und diese Zeile erneut ausfuehren.'
+$editoren = @($kandidaten | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue })
+if ($editoren.Count -eq 0) {
+    Write-Host 'Kein Editor gefunden (code, cursor oder codium).' -ForegroundColor Red
+    Write-Host 'Bitte VS Code (https://code.visualstudio.com/), Cursor (https://cursor.com/) oder VSCodium (https://vscodium.com/)'
+    Write-Host 'installieren - und diese Zeile erneut ausfuehren.'
     exit 1
 }
 
@@ -30,9 +30,12 @@ $datei = Join-Path ([IO.Path]::GetTempPath()) $asset.name
 Write-Host "Lade $($asset.name) ..."
 Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $datei -UseBasicParsing
 try {
-    & $code --install-extension $datei --force
+    foreach ($e in $editoren) {
+        Write-Host "Installiere in $e ..."
+        & $e --install-extension $datei --force
+    }
 } finally {
     Remove-Item $datei -ErrorAction SilentlyContinue
 }
 Write-Host ''
-Write-Host 'Fertig. In VS Code links auf das Kieselstein-Symbol klicken und "Server eintragen" waehlen.'
+Write-Host 'Fertig. Im Editor links auf das Kieselstein-Symbol klicken und "Server eintragen" waehlen.'
