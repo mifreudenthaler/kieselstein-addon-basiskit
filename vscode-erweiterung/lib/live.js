@@ -125,12 +125,13 @@ class Live {
 
   /** Was eine geänderte Datei braucht. */
   art(datei) {
-    const rel = path.relative(this.wurzel, datei).split(path.sep).join('/');
-    if (rel.startsWith(`${this.addon}/src/main/webapp/WEB-INF/`)) return 'ganz';
-    if (rel.startsWith(`${this.addon}/src/main/webapp/`)) return 'seite';
-    if (rel.startsWith(`${this.addon}/src/main/java/`)) return 'java';
-    if (rel.startsWith(`${this.addon}/src/main/resources/`)) return 'texte';
-    if (rel === `${this.addon}/build.gradle` || rel.startsWith('basis/src/main/')) return 'ganz';
+    const rel = path.relative(w.addonOrdner(this.wurzel, this.addon), datei).split(path.sep).join('/');
+    const vonWurzel = path.relative(this.wurzel, datei).split(path.sep).join('/');
+    if (rel.startsWith('src/main/webapp/WEB-INF/')) return 'ganz';
+    if (rel.startsWith('src/main/webapp/')) return 'seite';
+    if (rel.startsWith('src/main/java/')) return 'java';
+    if (rel.startsWith('src/main/resources/')) return 'texte';
+    if (rel === 'build.gradle' || rel.startsWith('basiskit/') || vonWurzel.startsWith('basis/src/main/')) return 'ganz';
     return null;
   }
 
@@ -157,17 +158,17 @@ class Live {
       let neustart = false;
       if (arten.has('java') || arten.has('texte')) {
         this.melde(`Live ${this.addon}: übersetzen …`);
-        await w.gradle(this.wurzel, [`:${this.addon}:classes`], this.optionen);
+        await w.gradle(this.wurzel, [`${w.gradlePfad(this.wurzel, this.addon)}:classes`], this.optionen);
         const klassen = path.join(this.ziel, 'WEB-INF', 'classes');
         for (const quelle of ['build/classes/java/main', 'build/resources/main']) {
-          const q = path.join(this.wurzel, this.addon, quelle);
+          const q = path.join(w.addonOrdner(this.wurzel, this.addon), quelle);
           if (fs.existsSync(q)) fs.cpSync(q, klassen, { recursive: true, force: true });
         }
         neustart = true;
       }
       if (arten.has('seite')) {
         for (const d of dateien.filter((x) => this.art(x) === 'seite')) {
-          const rel = path.relative(path.join(this.wurzel, this.addon, 'src/main/webapp'), d);
+          const rel = path.relative(path.join(w.addonOrdner(this.wurzel, this.addon), 'src/main/webapp'), d);
           const nach = path.join(this.ziel, rel);
           if (fs.existsSync(d)) {
             fs.mkdirSync(path.dirname(nach), { recursive: true });

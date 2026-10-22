@@ -26,10 +26,10 @@ exports.run = async () => {
   const wurzel = vscode.workspace.workspaceFolders[0].uri.fsPath;
   const srv = api.serverListe()[0];
   const url = `${srv.adresse}/livetest/`;
-  const ordner = path.join(wurzel, 'livetest');
+  const ordner = wurzel; // der Arbeitsbereich ist das Addon-Projekt selbst
 
-  await pruefen('Probe-Addon aus der Vorlage anlegen', async () => {
-    if (!fs.existsSync(ordner)) api.werkzeug.addonAnlegen(wurzel, 'livetest', 'Livetest', 'Probe für den Live-Modus');
+  await pruefen('Probe-Addon vorbereiten', async () => {
+    assert.strictEqual(api.werkzeug.projektArt(wurzel), 'addon');
     fs.writeFileSync(path.join(ordner, 'src/main/java/at/freudenthaler/kieselstein/addon/livetest/Probe.java'),
       'package at.freudenthaler.kieselstein.addon.livetest;\n@javax.inject.Named @javax.enterprise.context.RequestScoped\npublic class Probe { public String getText() { return "JAVA-1"; } }\n');
     const seite = path.join(ordner, 'src/main/webapp/index.xhtml');

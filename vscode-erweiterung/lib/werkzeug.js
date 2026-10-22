@@ -13,15 +13,51 @@ const { spawn, execFileSync } = require('node:child_process');
 
 const NAME_MUSTER = /^[a-z][a-z0-9-]{1,40}$/;
 
-/** Alle Addons im Projekt: Unterordner mit WEB-INF/jboss-web.xml (die Zentrale zählt mit). */
+/**
+ * Ein Addon-Projekt ist ein Addon mit eigenem Repository: im Ordner selbst liegen
+ * settings.gradle, build.gradle und src/main/webapp/WEB-INF/jboss-web.xml.
+ * Das Basiskit-Repository selbst ist eine Sammlung (settings.gradle mit basis/
+ * und Addons als Unterprojekten) – dort wird die Basisschicht entwickelt.
+ */
+function istAddonProjekt(d) {
+  return fs.existsSync(path.join(d, 'settings.gradle')) && fs.existsSync(path.join(d, 'src/main/webapp/WEB-INF/jboss-web.xml'));
+}
+
+function istSammlung(d) {
+  return fs.existsSync(path.join(d, 'settings.gradle')) && fs.existsSync(path.join(d, 'basis'));
+}
+
+function projektArt(wurzel) {
+  return istAddonProjekt(wurzel) ? 'addon' : 'sammlung';
+}
+
+function projektName(wurzel) {
+  const s = fs.existsSync(path.join(wurzel, 'settings.gradle')) ? fs.readFileSync(path.join(wurzel, 'settings.gradle'), 'utf8') : '';
+  const m = s.match(/rootProject\.name\s*=\s*['"]([^'"]+)['"]/);
+  return m ? m[1] : path.basename(wurzel);
+}
+
+function addonAus(ordner, name) {
+  const props = leseProperties(path.join(ordner, 'src/main/resources/addon.properties'));
+  return { name, titel: props.titel || name, ordner };
+}
+
+/** Alle Addons im geöffneten Projekt (bei einem Addon-Projekt genau eines). */
 function addons(wurzel) {
+  if (istAddonProjekt(wurzel)) return [addonAus(wurzel, projektName(wurzel))];
   return fs.readdirSync(wurzel, { withFileTypes: true })
-    .filter((d) => d.isDirectory() && d.name !== 'vorlage'
-      && fs.existsSync(path.join(wurzel, d.name, 'src/main/webapp/WEB-INF/jboss-web.xml')))
-    .map((d) => {
-      const props = leseProperties(path.join(wurzel, d.name, 'src/main/resources/addon.properties'));
-      return { name: d.name, titel: props.titel || d.name, ordner: path.join(wurzel, d.name) };
-    });
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(wurzel, d.name, 'src/main/webapp/WEB-INF/jboss-web.xml')))
+    .map((d) => addonAus(path.join(wurzel, d.name), d.name));
+}
+
+/** Gradle-Pfad eines Addons: im Addon-Projekt die Wurzel (""), in der Sammlung „:name". */
+function gradlePfad(wurzel, name) {
+  return istAddonProjekt(wurzel) ? '' : `:${name}`;
+}
+
+/** Ordner eines Addons. */
+function addonOrdner(wurzel, name) {
+  return istAddonProjekt(wurzel) ? wurzel : path.join(wurzel, name);
 }
 
 function leseProperties(datei) {
@@ -39,15 +75,16 @@ function addonZuDatei(wurzel, datei) {
   if (!datei) return null;
   const rel = path.relative(wurzel, datei);
   if (rel.startsWith('..')) return null;
+  if (istAddonProjekt(wurzel)) return addons(wurzel)[0];
   const erster = rel.split(path.sep)[0];
   return addons(wurzel).find((a) => a.name === erster) || null;
 }
 
-/** Wo der Basiskit-Projektordner liegt: der Ordner mit settings.gradle und basis/. */
+/** Das geöffnete Projekt: ein Addon-Projekt oder das Basiskit selbst. */
 function projektWurzel(start) {
   let d = start;
   for (let i = 0; i < 6 && d; i++) {
-    if (fs.existsSync(path.join(d, 'settings.gradle')) && fs.existsSync(path.join(d, 'basis'))) return d;
+    if (istAddonProjekt(d) || istSammlung(d)) return d;
     const hoch = path.dirname(d);
     if (hoch === d) break;
     d = hoch;
@@ -55,23 +92,29 @@ function projektWurzel(start) {
   return null;
 }
 
+/** Version der Basisschicht, die ein Addon-Projekt benutzt (aus build.gradle). */
+function basiskitVersion(wurzel) {
+  const b = path.join(wurzel, 'build.gradle');
+  if (!fs.existsSync(b)) return null;
+  const m = fs.readFileSync(b, 'utf8').match(/ext\.basiskitVersion\s*=\s*'([^']+)'/);
+  return m ? m[1] : null;
+}
+
 /**
- * Ein neues Addon aus der Vorlage anlegen und in settings.gradle eintragen.
- * Gibt den Ordner zurück.
+ * Ein neues Addon-Projekt aus der Vorlage anlegen – ein eigener Ordner, später
+ * ein eigenes Repository. Gibt den Ordner zurück.
  */
-function addonAnlegen(wurzel, name, titel, beschreibung) {
+function addonProjektAnlegen(vorlage, ziel, name, titel, beschreibung) {
   if (!NAME_MUSTER.test(name)) {
     throw new Error('Name: Kleinbuchstaben, Ziffern und Bindestrich, mit einem Buchstaben vorn (z. B. „lieferscheine")');
   }
-  if (['basis', 'zentrale', 'vorlage', 'addon-server', 'vscode-erweiterung'].includes(name)) {
-    throw new Error(`„${name}" ist im Basiskit schon vergeben`);
+  if (['basis', 'zentrale', 'basiskit'].includes(name)) throw new Error(`„${name}" ist im Basiskit schon vergeben`);
+  if (fs.existsSync(ziel) && fs.readdirSync(ziel).filter((n) => !n.startsWith('.')).length) {
+    throw new Error(`${ziel} ist nicht leer – bitte einen leeren oder neuen Ordner wählen.`);
   }
-  const ziel = path.join(wurzel, name);
-  if (fs.existsSync(ziel)) throw new Error(`Den Ordner ${name}/ gibt es schon`);
   const paket = name.replace(/-/g, '');
   const ersetzen = (s) => s.replace(/__NAME__/g, name).replace(/__PAKET__/g, paket)
     .replace(/__TITEL__/g, titel).replace(/__BESCHREIBUNG__/g, beschreibung || '');
-
   const kopieren = (von, nach) => {
     for (const e of fs.readdirSync(von, { withFileTypes: true })) {
       const quelle = path.join(von, e.name);
@@ -79,19 +122,34 @@ function addonAnlegen(wurzel, name, titel, beschreibung) {
       if (e.isDirectory()) {
         fs.mkdirSync(zielPfad, { recursive: true });
         kopieren(quelle, zielPfad);
+      } else if (/\.(jar|png|jpg|gif|ico)$/.test(e.name)) {
+        fs.copyFileSync(quelle, zielPfad);
       } else {
         fs.writeFileSync(zielPfad, ersetzen(fs.readFileSync(quelle, 'utf8')));
+        if (e.name === 'gradlew') fs.chmodSync(zielPfad, 0o755);
       }
     }
   };
   fs.mkdirSync(ziel, { recursive: true });
-  kopieren(path.join(wurzel, 'vorlage'), ziel);
-
-  const settings = path.join(wurzel, 'settings.gradle');
-  const text = fs.readFileSync(settings, 'utf8');
-  const neu = text.replace(/include\s+([^\n]+)/, (zeile, liste) => `include ${liste.trim()}, '${name}'`);
-  fs.writeFileSync(settings, neu === text ? `${text.trimEnd()}\ninclude '${name}'\n` : neu);
+  kopieren(vorlage, ziel);
   return ziel;
+}
+
+/**
+ * Basisschicht eines Addon-Projekts auf die Fassung der Erweiterung bringen:
+ * Bibliothek tauschen, Version in build.gradle setzen.
+ */
+function basiskitAktualisieren(vorlage, wurzel) {
+  const neu = fs.readdirSync(path.join(vorlage, 'basiskit')).find((n) => /^basis-[\d.]+\.jar$/.test(n));
+  const version = neu.replace(/^basis-|\.jar$/g, '');
+  const alt = basiskitVersion(wurzel);
+  const ordner = path.join(wurzel, 'basiskit');
+  fs.mkdirSync(ordner, { recursive: true });
+  for (const n of fs.readdirSync(ordner)) if (/^basis-.*\.jar$/.test(n)) fs.rmSync(path.join(ordner, n));
+  for (const n of fs.readdirSync(path.join(vorlage, 'basiskit'))) fs.copyFileSync(path.join(vorlage, 'basiskit', n), path.join(ordner, n));
+  const b = path.join(wurzel, 'build.gradle');
+  fs.writeFileSync(b, fs.readFileSync(b, 'utf8').replace(/ext\.basiskitVersion\s*=\s*'[^']+'/, `ext.basiskitVersion = '${version}'`));
+  return { alt, neu: version };
 }
 
 /** JDK 21 finden: Einstellung, sonst das von Kieselstein. */
@@ -128,11 +186,12 @@ function gradle(wurzel, aufgaben, { jdkPfad, clientLib, melde = () => {} } = {})
 }
 
 function bauen(wurzel, addon, optionen) {
-  return gradle(wurzel, [`:${addon}:war`], optionen).then(() => path.join(wurzel, addon, 'build', 'libs', `${addon}.war`));
+  return gradle(wurzel, [`${gradlePfad(wurzel, addon)}:war`], optionen)
+    .then(() => path.join(addonOrdner(wurzel, addon), 'build', 'libs', `${addon}.war`));
 }
 
 function testen(wurzel, addon, optionen) {
-  return gradle(wurzel, [`:${addon}:test`], optionen);
+  return gradle(wurzel, [`${gradlePfad(wurzel, addon)}:test`], optionen);
 }
 
 /** Die Fassaden der Kieselstein-Version: alle *Fac-Schnittstellen im ejb-jar. */
@@ -155,5 +214,6 @@ function fassadeZeigen(clientLib, klasse, jdkPfad) {
 }
 
 module.exports = {
-  addons, addonZuDatei, projektWurzel, addonAnlegen, bauen, testen, gradle, fassaden, fassadeZeigen, leseProperties,
+  addons, addonZuDatei, projektWurzel, projektArt, projektName, gradlePfad, addonOrdner, basiskitVersion,
+  addonProjektAnlegen, basiskitAktualisieren, bauen, testen, gradle, fassaden, fassadeZeigen, leseProperties,
 };

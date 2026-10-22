@@ -307,91 +307,138 @@ async function addonWaehlen(frage) {
   return wahl?.addon;
 }
 
-/** Fragt Name, Titel und Beschreibung eines neuen Addons ab. */
-async function addonAngaben() {
-  const name = await vscode.window.showInputBox({
-    prompt: 'Name des Addons (wird Adresse und Ordner), z. B. lieferscheine',
-    validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
-  });
-  if (!name) return null;
-  const titel = await vscode.window.showInputBox({ prompt: 'Titel, wie er in der Zentrale steht', value: name.charAt(0).toUpperCase() + name.slice(1) });
-  if (!titel) return null;
-  const beschreibung = (await vscode.window.showInputBox({ prompt: 'Ein Satz, was das Addon tut' })) || '';
-  return { name, titel, beschreibung };
-}
-
 /**
- * Ein Addon-Projekt anlegen: Basisschicht, Addon-Vorlage und Gradle aus der
- * Erweiterung, die Kieselstein-Client-Bibliotheken vom Server der ersten Stufe.
- * Gibt den Projektordner zurück.
+ * Ein Addon-Projekt anlegen: ein Addon, ein Ordner, ein eigenes Git-Repository.
+ * Vorlage und Basisschicht aus der Erweiterung, die Kieselstein-Client-Bibliotheken
+ * vom Server der ersten Stufe. Gibt den Projektordner zurück.
  */
 async function projektAnlegen(ordner, angaben) {
   const vorlage = path.join(kontext.extensionPath, 'projekt');
   if (!require('node:fs').existsSync(vorlage)) throw new Error('Projektvorlage fehlt in der Erweiterung.');
-  const fsx = require('node:fs');
-  if (fsx.existsSync(ordner) && fsx.readdirSync(ordner).filter((n) => !n.startsWith('.')).length) {
-    throw new Error(`${ordner} ist nicht leer – bitte einen leeren oder neuen Ordner wählen.`);
-  }
   const erste = s.ersteStufe(serverListe());
   if (!erste) throw new Error('Zuerst einen Server eintragen – von dort kommen die Kieselstein-Bibliotheken, gegen die gebaut wird.');
-  fsx.mkdirSync(ordner, { recursive: true });
-  fsx.cpSync(vorlage, ordner, { recursive: true });
-  fsx.chmodSync(path.join(ordner, 'gradlew'), 0o755);
-  ausgabe.appendLine(`Kieselstein-Bibliotheken von ${s.STUFEN_NAME[erste.stufe]} holen …`);
-  const lib = await s.clientBibliotheken(erste, path.join(ordner, '.kieselstein-client', 'lib'));
-  ausgabe.appendLine(`✔ ${lib.anzahl} Bibliotheken der Kieselstein-Version ${lib.version}`);
-  if (angaben) w.addonAnlegen(ordner, angaben.name, angaben.titel, angaben.beschreibung);
+  w.addonProjektAnlegen(vorlage, ordner, angaben.name, angaben.titel, angaben.beschreibung);
+  await bibliothekenHolenNach(ordner, erste);
+  const git = (...args) => require('node:child_process').execFileSync('git', args, { cwd: ordner, stdio: 'pipe' });
   try {
-    require('node:child_process').execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: ordner });
+    git('init', '-q', '-b', 'main');
+    git('add', '-A');
+    try {
+      git('commit', '-q', '-m', `Neues Addon „${angaben.titel}" aus dem Basiskit`);
+    } catch (e) {
+      // Git kennt den Namen des Entwicklers noch nicht – dann erstmal ohne Benutzerangabe festhalten
+      git('-c', 'user.name=Kieselstein-Addon', '-c', 'user.email=addon@localhost', 'commit', '-q', '-m', `Neues Addon „${angaben.titel}" aus dem Basiskit`);
+    }
+    ausgabe.appendLine('✔ Git-Repository angelegt (main, erster Commit)');
   } catch (e) {
-    // ohne Git weiter – das Projekt funktioniert trotzdem
+    ausgabe.appendLine(`Git-Repository nicht angelegt: ${e.message.split('\n')[0]}`);
   }
   return ordner;
 }
 
+async function bibliothekenHolenNach(ordner, erste) {
+  ausgabe.appendLine(`Kieselstein-Bibliotheken von ${s.STUFEN_NAME[erste.stufe]} holen …`);
+  const lib = await s.clientBibliotheken(erste, path.join(ordner, '.kieselstein-client', 'lib'));
+  ausgabe.appendLine(`✔ ${lib.anzahl} Bibliotheken der Kieselstein-Version ${lib.version}`);
+  return lib;
+}
+
+/** Kieselstein-Bibliotheken ins geöffnete Addon-Projekt holen (nach dem Klonen oder einem Kieselstein-Update). */
+async function bibliothekenHolen() {
+  try {
+    const r = wurzel();
+    const erste = s.ersteStufe(serverListe());
+    if (!erste) throw new Error('Zuerst einen Server eintragen.');
+    await mitFortschritt('Kieselstein-Bibliotheken holen', () => bibliothekenHolenNach(r, erste));
+    vscode.window.showInformationMessage('Kieselstein-Bibliotheken sind da – das Addon lässt sich bauen.');
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+/** Basisschicht im geöffneten Addon-Projekt auf die Fassung der Erweiterung bringen. */
+async function basisAktualisieren() {
+  try {
+    const r = wurzel();
+    if (w.projektArt(r) !== 'addon') throw new Error('Nur in einem Addon-Projekt.');
+    const e = w.basiskitAktualisieren(path.join(kontext.extensionPath, 'projekt'), r);
+    ausgabe.appendLine(`✔ Basisschicht ${e.alt || '?'} → ${e.neu}`);
+    vscode.window.showInformationMessage(`Basisschicht auf ${e.neu} aktualisiert – bitte bauen, testen und committen.`);
+  } catch (e) {
+    fehler(e);
+  }
+}
+
+/** Beim Öffnen eines Addon-Projekts: fehlen Bibliotheken, ist die Basisschicht alt? */
+async function projektPruefen() {
+  const r = wurzel(false);
+  if (!r || w.projektArt(r) !== 'addon') return;
+  const fsx = require('node:fs');
+  if (!fsx.existsSync(path.join(r, '.kieselstein-client', 'lib')) && s.ersteStufe(serverListe())) {
+    const wahl = await vscode.window.showInformationMessage('Diesem Addon-Projekt fehlen die Kieselstein-Bibliotheken (sie kommen nicht mit ins Repository).', 'Jetzt holen');
+    if (wahl) await bibliothekenHolen();
+  }
+  const projekt = w.basiskitVersion(r);
+  const eigen = kontext.extension.packageJSON.version;
+  if (projekt && neuer(eigen, projekt)) {
+    const wahl = await vscode.window.showInformationMessage(`Das Addon nutzt die Basisschicht ${projekt}, verfügbar ist ${eigen}.`, 'Aktualisieren', 'Später');
+    if (wahl === 'Aktualisieren') await basisAktualisieren();
+  }
+}
+
+/** Fragt Name, Titel und Beschreibung eines neuen Addons ab. */
+async function addonAngaben() {
+  const name = await vscode.window.showInputBox({
+    title: 'Neues Addon',
+    prompt: 'Name des Addons (wird Adresse, Ordner und Repository), z. B. lieferscheine',
+    validateInput: (v) => (/^[a-z][a-z0-9-]{1,40}$/.test(v) ? null : 'Kleinbuchstaben, Ziffern, Bindestrich'),
+  });
+  if (!name) return null;
+  const titel = await vscode.window.showInputBox({ title: 'Neues Addon', prompt: 'Titel, wie er in der Zentrale steht', value: name.charAt(0).toUpperCase() + name.slice(1) });
+  if (!titel) return null;
+  const beschreibung = (await vscode.window.showInputBox({ title: 'Neues Addon', prompt: 'Ein Satz, was das Addon tut' })) || '';
+  return { name, titel, beschreibung };
+}
+
+/**
+ * Neues Addon = neues Projekt mit eigenem Repository. Der Ordner ergibt sich aus
+ * der Umgebung: neben dem geöffneten Addon, sonst neben der Kieselstein-Installation
+ * der ersten Stufe (addon-quellen/), nie in addons/ – dort läuft der Addon-Server.
+ */
 async function addonAnlegen() {
   try {
-    const r = wurzel(false);
-    if (!r) {
-      // Kein Addon-Projekt offen: eines anlegen, mit dem ersten Addon darin.
-      const wahl = await vscode.window.showInformationMessage(
-        'Hier ist noch kein Addon-Projekt geöffnet. Ein neues anlegen? Es enthält die Basisschicht, Ihr erstes Addon und die Kieselstein-Bibliotheken vom Server.',
-        { modal: true }, 'Projekt anlegen …');
-      if (!wahl) return null;
-      // Kein Datei-Dialog des Systems: Über Fernsitzungen erscheint der unsichtbar und blockiert den Editor.
-      const fsx = require('node:fs');
-      // Vorschlag aus der Umgebung: neben der Kieselstein-Installation der ersten Stufe –
-      // nicht in addons/, das ist der Laufzeitbereich (Server, Pakete, Einstellungen, Protokolle).
-      const erste = s.ersteStufe(serverListe());
-      const vorschlag = erste && !erste.ssh
-        ? path.join(erste.kieselstein, 'addon-quellen')
-        : path.join(require('node:os').homedir(), 'kieselstein-addons');
-      const zielPfad = await vscode.window.showInputBox({
-        title: 'Neues Addon-Projekt',
-        prompt: `Ordner für den Quellcode der Addons (${erste ? s.STUFEN_NAME[erste.stufe] : 'diese Maschine'}) – wird angelegt, falls es ihn noch nicht gibt`,
-        value: vorschlag,
-        validateInput: (v) => {
-          if (!v || !path.isAbsolute(v.replace(/^~(?=\/|$)/, require('node:os').homedir()))) return 'Vollständiger Pfad, z. B. ' + vorschlag;
-          const p = v.replace(/^~(?=\/|$)/, require('node:os').homedir());
-          if (/[\\/]addons([\\/]|$)/.test(p)) return 'Nicht in addons/ – dort läuft der Addon-Server. Daneben, z. B. ' + vorschlag;
-          if (fsx.existsSync(p) && fsx.readdirSync(p).filter((n) => !n.startsWith('.')).length) return 'Der Ordner ist nicht leer';
-          return null;
-        },
-      });
-      if (!zielPfad) return null;
-      const angaben = await addonAngaben();
-      if (!angaben) return null;
-      const ordner = await mitFortschritt('Addon-Projekt anlegen', () =>
-        projektAnlegen(zielPfad.replace(/^~(?=\/|$)/, require('node:os').homedir()), angaben));
-      vscode.window.showInformationMessage(`Addon-Projekt angelegt – der Editor öffnet jetzt ${ordner}.`);
-      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(ordner), false);
-      return ordner;
-    }
     const angaben = await addonAngaben();
     if (!angaben) return null;
-    const ordner = w.addonAnlegen(r, angaben.name, angaben.titel, angaben.beschreibung);
-    await vscode.window.showTextDocument(vscode.Uri.file(path.join(ordner, 'src/main/webapp/index.xhtml')));
-    vscode.window.showInformationMessage(`Addon „${angaben.titel}" angelegt – mit der Flamme live entwickeln.`);
+    const os = require('node:os');
+    const fsx = require('node:fs');
+    const offen = wurzel(false);
+    const erste = s.ersteStufe(serverListe());
+    const basis = offen ? path.dirname(offen)
+      : erste && !erste.ssh ? path.join(erste.kieselstein, 'addon-quellen')
+        : path.join(os.homedir(), 'kieselstein-addons');
+    const vorschlag = path.join(basis, angaben.name);
+    const pfad = await vscode.window.showInputBox({
+      title: `Neues Addon „${angaben.titel}"`,
+      prompt: 'Ordner für das Addon – ein eigenes Projekt mit eigenem Git-Repository',
+      value: vorschlag,
+      validateInput: (v) => {
+        const p = (v || '').replace(/^~(?=\/|$)/, os.homedir());
+        if (!path.isAbsolute(p)) return `Vollständiger Pfad, z. B. ${vorschlag}`;
+        if (/[\\/]addons([\\/]|$)/.test(p)) return `Nicht in addons/ – dort läuft der Addon-Server. Daneben, z. B. ${vorschlag}`;
+        if (fsx.existsSync(p) && fsx.readdirSync(p).filter((n) => !n.startsWith('.')).length) return 'Der Ordner ist nicht leer';
+        return null;
+      },
+    });
+    if (!pfad) return null;
+    const ordner = await mitFortschritt(`Addon „${angaben.titel}" anlegen`, () =>
+      projektAnlegen(pfad.replace(/^~(?=\/|$)/, os.homedir()), angaben));
+    const uri = vscode.Uri.file(ordner);
+    if (offen) {
+      const wahl = await vscode.window.showInformationMessage(`Addon „${angaben.titel}" angelegt in ${ordner}.`, 'Hier öffnen', 'In neuem Fenster');
+      if (wahl) await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: wahl === 'In neuem Fenster' });
+    } else {
+      await vscode.commands.executeCommand('vscode.openFolder', uri, false);
+    }
     return ordner;
   } catch (e) {
     fehler(e);
@@ -490,7 +537,8 @@ async function liveStarten(addonVorgabe) {
     await mitFortschritt(`Live-Modus ${addon.titel}`, () => l.starten());
     live = l;
     // Beobachtet die Dateien selbst – auch Änderungen, die ein Agent schreibt, nicht nur gespeicherte Editoren.
-    liveBeobachter = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(r, `{${addon.name},basis}/**/*`));
+    const muster = w.projektArt(r) === 'addon' ? '**/*' : `{${addon.name},basis}/**/*`;
+    liveBeobachter = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(r, muster));
     const merken = (uri) => {
       if (!live || /[\\/]build[\\/]|[\\/]\.gradle[\\/]/.test(uri.fsPath)) return;
       liveOffen.add(uri.fsPath);
@@ -659,6 +707,8 @@ function activate(k) {
     'kieselsteinAddon.updatePruefen': () => updatePruefen(true),
     'kieselsteinAddon.liveStarten': liveStarten,
     'kieselsteinAddon.liveBeenden': liveBeenden,
+    'kieselsteinAddon.bibliothekenHolen': bibliothekenHolen,
+    'kieselsteinAddon.basisAktualisieren': basisAktualisieren,
   };
   for (const [id, f] of Object.entries(befehle)) k.subscriptions.push(vscode.commands.registerCommand(id, f));
   k.subscriptions.push(ausgabe, leiste, { dispose: () => clearInterval(takt) },
@@ -666,6 +716,7 @@ function activate(k) {
 
   setTimeout(() => updatePruefen(false), 10000);
   setTimeout(() => liveWiederfinden().catch(() => {}), 3000);
+  setTimeout(() => projektPruefen().catch(() => {}), 2000);
 
   // Für automatische Tests: dieselben Bausteine, ohne Eingabefelder
   return { server: s, werkzeug: w, formular: f, projektAnlegen, live: () => live, liveStarten, liveBeenden, ansicht, serverListe, serverSpeichern, basiskitEinrichten, inErsteStufe, schluessel, neuer, githubRepo };

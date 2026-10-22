@@ -1,6 +1,8 @@
 // Die Basisschicht: Anmeldung, Rechte und Fassaden-Zugriff für alle Addons.
 // Kieselstein-Schnittstellen und Java EE kommen zur Laufzeit vom Addon-Server.
 apply plugin: 'java-library'
+version = rootProject.basiskitVersion
+java { withSourcesJar() }
 
 dependencies {
     compileOnly 'javax:javaee-api:8.0.1'

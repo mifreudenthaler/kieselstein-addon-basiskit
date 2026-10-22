@@ -2,9 +2,17 @@
 
 Dieses Addon läuft im Kieselstein-Addon-Server und ist mit dem Basiskit gebaut.
 
+## Aufbau
+
+Ein Addon = ein Projekt = ein Repository. Basisschicht als `basiskit/basis-<version>.jar`
+(Quellen zum Nachlesen: `basiskit/basis-<version>-sources.jar`), Kieselstein-Schnittstellen unter
+`.kieselstein-client/lib` (nicht im Repository, holt die Erweiterung vom Server).
+Bauen `./gradlew war`, Tests `./gradlew test`. Läuft der Live-Modus, übernimmt die Erweiterung
+jede geschriebene Datei von selbst – einfach Dateien ändern.
+
 ## Wo was hingehört
 
-- Fachlogik: in `src/main/java/.../__PAKET__/`. Reine Logik ohne Kieselstein in eigene Klassen (wie `Texte`), damit sie Tests ohne Server haben.
+- Fachlogik: in `src/main/java/at/freudenthaler/kieselstein/addon/__PAKET__/`. Reine Logik ohne Kieselstein in eigene Klassen (wie `Texte`), damit sie Tests ohne Server haben.
 - Seiten: `src/main/webapp/*.xhtml`, immer mit `template="/basiskit/rahmen.xhtml"`. Kein eigenes CSS, keine eigenen Farben.
 - Beschreibung für die Zentrale: `src/main/resources/addon.properties` (titel, beschreibung).
 

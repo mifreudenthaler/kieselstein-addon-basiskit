@@ -1,0 +1,41 @@
+// Kieselstein-Addon „__TITEL__"
+//
+// Basisschicht: basiskit/basis-<version>.jar liegt im Repository (feste Version,
+// die Kieselstein-Addon-Erweiterung aktualisiert sie auf Wunsch).
+// Kieselstein-Schnittstellen: .kieselstein-client/lib – holt die Erweiterung vom
+// Server der ersten Stufe, passend zu dessen Kieselstein-Version.
+plugins {
+    id 'war'
+}
+
+version = '0.1.0'
+ext.basiskitVersion = '@BASISKIT_VERSION@'
+def ksClientLib = findProperty('ksClientLib') ?: "${rootDir}/.kieselstein-client/lib"
+
+repositories { mavenCentral() }
+
+java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-proc:none']
+}
+
+dependencies {
+    implementation files("basiskit/basis-${basiskitVersion}.jar")
+    implementation 'org.primefaces:primefaces:15.0.6'
+    compileOnly 'javax:javaee-api:8.0.1'
+    compileOnly fileTree(ksClientLib) { include 'kieselstein-ejb-*.jar', 'kieselstein-common-*.jar' }
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test { useJUnitPlatform() }
+
+processResources {
+    inputs.property('version', project.version)
+    filesMatching('addon.properties') { expand(version: project.version) }
+}
+
+war {
+    archiveFileName = '__NAME__.war'
+}
