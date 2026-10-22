@@ -12,6 +12,11 @@ Addon-Server, Basisschicht, Addon-Zentrale, Vorlage, VS-Code-Erweiterung und Dok
 - Eingerichtet wird über die VS-Code-Erweiterung (`vscode-erweiterung/`, Seitenleiste „Kieselstein-Addons"),
   von Hand ginge es so: `bash einrichten.sh <kieselstein-ordner> --stufe test --naechste-stufe http://erp-prod:8280`.
   Die Kieselstein-Client-Bibliotheken kommen aus `dist/clients` der Installation selbst.
+- Nachträglich eine Stufe einrichten (z. B. Test neben einer laufenden Entwicklung): Server eintragen,
+  „Basiskit einrichten" – die Vorstufe bekommt dabei Adresse und gemeinsamen Schlüssel der neuen Stufe
+  (`NAECHSTE_STUFE_URL`, `config/freigabe.schluessel`), ihr Addon-Server startet nur bei einer Änderung neu.
+- Addon-Projekte liegen standardmäßig unter `addons/projekte/<name>` der ersten Stufe, jedes mit eigenem
+  Git-Repository; `server/`, `deployments/`, `archiv/`, `config/` und `logs/` gehören dem Addon-Server.
 
 ## Aufbau
 

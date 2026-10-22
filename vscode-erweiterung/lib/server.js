@@ -38,6 +38,34 @@ function naechste(server, s) {
   return i >= 0 && i + 1 < k.length ? k[i + 1] : null;
 }
 
+function vorige(server, s) {
+  const k = kette(server);
+  const i = k.indexOf(s);
+  return i > 0 ? k[i - 1] : null;
+}
+
+/**
+ * Die vorige Stufe mit dieser verbinden: Adresse der nächsten Stufe und
+ * gemeinsamen Schlüssel eintragen, Addon-Server neu starten – nur wenn sich
+ * etwas ändert. So kennt die Entwicklung den nachträglich eingerichteten Test.
+ */
+async function verbinden(vor, nach, schluessel, { melde = () => {} } = {}) {
+  const st = await stand(vor);
+  if (!st.installiert) return false;
+  const a = addonsOrdner(vor);
+  const r = await ausfuehren(vor, `cat ${q(a + '/config/freigabe.schluessel')} 2>/dev/null`);
+  if (st.naechste === nach.adresse && r.aus.trim() === schluessel) return false;
+  melde(`${STUFEN_NAME[vor.stufe]}: mit ${STUFEN_NAME[nach.stufe]} verbinden (${nach.adresse}) …`);
+  const conf = `${a}/config/addon-server.conf`;
+  await pflicht(vor, `if grep -q '^NAECHSTE_STUFE_URL=' ${q(conf)}; then sed -i ${q('s#^NAECHSTE_STUFE_URL=.*#NAECHSTE_STUFE_URL=' + nach.adresse + '#')} ${q(conf)}; `
+    + `else echo ${q('NAECHSTE_STUFE_URL=' + nach.adresse)} >> ${q(conf)}; fi; `
+    + `(umask 077; printf %s ${q(schluessel)} > ${q(a + '/config/freigabe.schluessel')})`);
+  await pflicht(vor, `bash ${q(a + '/stopp.sh')} >/dev/null 2>&1; bash ${q(a + '/start.sh')} --hintergrund`);
+  await warten(vor, (x) => x.laeuft && x.addons.some((y) => y.name === 'zentrale' && y.zustand.startsWith('läuft')), 180);
+  melde(`${STUFEN_NAME[vor.stufe]}: rollt jetzt nach ${STUFEN_NAME[nach.stufe]} aus`);
+  return true;
+}
+
 function q(s) {
   return `'${String(s).replace(/'/g, `'\\''`)}'`;
 }
@@ -288,6 +316,6 @@ function neuerSchluessel() {
 }
 
 module.exports = {
-  STUFEN, STUFEN_NAME, kette, ersteStufe, naechste, ausfuehren, stand, paket, einrichten,
+  STUFEN, STUFEN_NAME, kette, ersteStufe, naechste, vorige, verbinden, ausfuehren, stand, paket, einrichten,
   starten, anhalten, inErsteStufeLaden, neuerSchluessel, clientBibliotheken,
 };

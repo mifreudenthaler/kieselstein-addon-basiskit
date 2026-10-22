@@ -257,6 +257,14 @@ async function basiskitEinrichten(knoten) {
         fortschritt.report({ message: s.STUFEN_NAME[z.stufe] });
         await s.einrichten(z, alle, { paketDatei: p.datei, schluessel: k, melde: (m) => ausgabe.appendLine(m) });
       }
+      // Die Stufe davor auf den neuen Stand bringen: Sie muss wissen, wohin sie ausrollt.
+      for (const z of ziele) {
+        const vor = s.vorige(alle, z);
+        if (vor && !ziele.includes(vor)) {
+          fortschritt.report({ message: `${s.STUFEN_NAME[vor.stufe]} verbinden` });
+          await s.verbinden(vor, z, k, { melde: (m) => ausgabe.appendLine(m) });
+        }
+      }
       ausgabe.appendLine(`✔ Basiskit ${p.version} eingerichtet: ${ziele.map((z) => s.STUFEN_NAME[z.stufe]).join(', ')}`);
       vscode.window.showInformationMessage(`Basiskit ${p.version} eingerichtet: ${ziele.map((z) => s.STUFEN_NAME[z.stufe]).join(', ')}.`);
     });
@@ -403,7 +411,7 @@ async function addonAngaben() {
 /**
  * Neues Addon = neues Projekt mit eigenem Repository. Der Ordner ergibt sich aus
  * der Umgebung: neben dem geöffneten Addon, sonst neben der Kieselstein-Installation
- * der ersten Stufe (addon-quellen/), nie in addons/ – dort läuft der Addon-Server.
+ * der ersten Stufe unter addons/projekte/ – nie in die Ordner, die der Addon-Server selbst nutzt.
  */
 async function addonAnlegen() {
   try {
@@ -414,7 +422,7 @@ async function addonAnlegen() {
     const offen = wurzel(false);
     const erste = s.ersteStufe(serverListe());
     const basis = offen ? path.dirname(offen)
-      : erste && !erste.ssh ? path.join(erste.kieselstein, 'addon-quellen')
+      : erste && !erste.ssh ? path.join(erste.kieselstein, 'addons', 'projekte')
         : path.join(os.homedir(), 'kieselstein-addons');
     const vorschlag = path.join(basis, angaben.name);
     const pfad = await vscode.window.showInputBox({
@@ -424,7 +432,9 @@ async function addonAnlegen() {
       validateInput: (v) => {
         const p = (v || '').replace(/^~(?=\/|$)/, os.homedir());
         if (!path.isAbsolute(p)) return `Vollständiger Pfad, z. B. ${vorschlag}`;
-        if (/[\\/]addons([\\/]|$)/.test(p)) return `Nicht in addons/ – dort läuft der Addon-Server. Daneben, z. B. ${vorschlag}`;
+        if (/[\\/]addons[\\/](server|deployments|archiv|config|logs)([\\/]|$)/.test(p) || /[\\/]addons\/?$/.test(p)) {
+          return `Nicht dorthin – diese Ordner nutzt der Addon-Server selbst. Z. B. ${vorschlag}`;
+        }
         if (fsx.existsSync(p) && fsx.readdirSync(p).filter((n) => !n.startsWith('.')).length) return 'Der Ordner ist nicht leer';
         return null;
       },

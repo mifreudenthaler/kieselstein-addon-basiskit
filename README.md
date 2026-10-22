@@ -19,9 +19,9 @@ Das Basiskit macht es leicht, Zusatzprogramme (Addons) für Kieselstein ERP zu b
 - Editor installieren: VS Code, Cursor oder VSCodium
 - Erweiterung installieren: Befehl oben im Terminal des Editors ausführen
 - Seitenleiste „Kieselstein-Addons" → **Server eintragen**: Test und Produktion (Entwicklung optional), je SSH-Zugang und Kieselstein-Ordner
-- Je Server **Basiskit einrichten** → Addon-Server und Zentrale werden installiert, verbunden und gestartet
+- Je Server **Basiskit einrichten** → Addon-Server und Zentrale werden installiert, verbunden und gestartet; ein später eingerichteter Server wird automatisch mit seiner Vorstufe verbunden
 - Zentrale im Browser öffnen, mit dem Kieselstein-Benutzer anmelden
-- **Neues Addon anlegen**: jedes Addon ist ein eigenes Projekt mit eigenem Git-Repository (Basisschicht als Bibliothek darin), angelegt neben der Kieselstein-Installation unter `addon-quellen/`
+- **Neues Addon anlegen**: jedes Addon ist ein eigenes Projekt mit eigenem Git-Repository (Basisschicht als Bibliothek darin), angelegt unter `addons/projekte/` der ersten Stufe
 - Entwickeln im **Live-Modus** (Flamme im Editor): Seiten in rund 2 s, Java in rund 3 s im Browser, die Seite lädt von selbst neu
 - Addon bauen und in den Test laden (Editor), in die Produktion über **In Produktion ausrollen** in der Zentrale
 
