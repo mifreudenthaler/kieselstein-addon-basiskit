@@ -88,8 +88,11 @@ if [ ! -f "$SXML" ]; then
 fi
 
 # 4. Kieselstein-Schnittstellen als Modul (nicht ins Addon: das ejb-jar enthält auch die Beans).
-#    Mit dabei alle Client-Bibliotheken außer dem, was WildFly selbst mitbringt.
-AUSGENOMMEN='^(wildfly|jboss|javax|jakarta|jaxb|undertow|xnio|netty|kieselstein-client)'
+#    Mit dabei alle Client-Bibliotheken außer dem, was WildFly oder Java selbst mitbringen.
+#    xml-apis und stax-api enthalten org.w3c.dom bzw. javax.xml.stream noch einmal; liegen sie im
+#    Modul, passen die Typen der Fassaden (z. B. ArtikelFac, AuftragFac) nicht mehr zu denen des
+#    Addons, und der Aufruf scheitert mit „org.w3c.dom.Document … not visible from class loader".
+AUSGENOMMEN='^(wildfly|jboss|javax|jakarta|jaxb|undertow|xnio|netty|kieselstein-client|xml-apis-[0-9]|stax-api)'
 MOD="$SERVER/modules/kieselstein/client/main"
 rm -rf "$MOD"; mkdir -p "$MOD"
 WURZELN=""

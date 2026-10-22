@@ -37,6 +37,12 @@ public class Messfilter implements Filter {
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain kette) throws IOException, ServletException {
         HttpServletRequest anfrage = (HttpServletRequest) req;
+        // Alles in UTF-8. Beim Hochladen schickt der Browser multipart ohne Zeichensatz; JSF merkt sich
+        // daraufhin ISO-8859-1 für die Ansicht, und Gedankenstriche, Anführungszeichen, Pfeile werden zu „?".
+        if (req.getCharacterEncoding() == null) {
+            req.setCharacterEncoding("UTF-8");
+        }
+        res.setCharacterEncoding("UTF-8");
         String pfad = anfrage.getRequestURI();
         // Bilder, Stile, Skripte und die Abfrage des Live-Modus zählen nicht – sie sagen nichts über das Addon.
         if (pfad.contains("/javax.faces.resource/") || pfad.endsWith("/basiskit/live")) {

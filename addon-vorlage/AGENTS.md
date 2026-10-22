@@ -29,4 +29,4 @@ jede geschriebene Datei von selbst – einfach Dateien ändern.
 - **Nie SQL schreiben.** Lesen über Listen oder Fassaden, schreiben nur über Fassaden.
 - **Jede Funktion prüft ein Kieselstein-Recht** (`sitzung.hatRecht`) – dasselbe, das der Client an der Stelle prüft. Im Kieselstein-Quellcode nachsehen, welches.
 - **Wie Kieselstein es selbst macht:** im Quellcode die Fassade und Methode suchen, die der Client für den Vorgang benutzt (`kieselstein-client/.../delegate/*Delegate.java`).
-- **Nur bis zum Test.** In die Produktion kommt ein Addon ausschließlich über „Für Produktion freigeben" in der Test-Zentrale, durch einen Menschen.
+- **Nur bis zum Test.** In die Produktion kommt ein Addon ausschließlich über „In … ausrollen" in der Zentrale der vorigen Stufe, durch einen Menschen.
